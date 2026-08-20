@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 /*
  * Alloy Configuration for OpenTelemetry Trace Collection with Service Graph Generation
  */
@@ -17,7 +22,7 @@ otelcol.processor.batch "default" {
   output {
     traces = [
       otelcol.connector.servicegraph.default.input,
-      otelcol.exporter.otlp.tempo.input,
+      grafana_cloud.otlp.default.input,
     ]
   }
 }
@@ -34,29 +39,13 @@ otelcol.connector.servicegraph "default" {
   }
   
   output {
-    metrics = [otelcol.exporter.otlphttp.prometheus.input]
+    metrics = [grafana_cloud.otlp.default.input]
   }
 }
 
 // Send service graph metrics to Prometheus via OTLP
-otelcol.exporter.otlphttp "prometheus" {
-  client {
-    endpoint = "http://prometheus:9090/api/v1/otlp"
-    tls {
-      insecure = true
-    }
-  }
-}
 
 // Send traces to Tempo for storage and visualization
-otelcol.exporter.otlp "tempo" {
-  client {
-    endpoint = "tempo:4317"
-    tls {
-      insecure = true
-    }
-  }
-} 
 
 livedebugging {
   enabled = true

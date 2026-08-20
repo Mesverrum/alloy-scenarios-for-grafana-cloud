@@ -1,3 +1,9 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
+grafana_cloud.profiles "default" {}
 /*
  * Alloy Configuration for OpenTelemetry Collection (traces, logs, metrics,
  * profiles). All signals pass through unsampled: receiver → batch →
@@ -21,34 +27,15 @@ otelcol.receiver.otlp "default" {
 // Batch processor to improve performance
 otelcol.processor.batch "default" {
   output {
-    traces = [otelcol.exporter.otlp.tempo.input]
-    logs = [otelcol.exporter.otlphttp.logs.input]
-    metrics = [otelcol.exporter.otlphttp.metrics.input]
+    traces = [grafana_cloud.otlp.default.input]
+    logs = [grafana_cloud.otlp.default.input]
+    metrics = [grafana_cloud.otlp.default.input]
   }
 }
 
 // Send traces to Tempo
-otelcol.exporter.otlp "tempo" {
-  client {
-    endpoint = "tempo:4317"
-    tls {
-      insecure = true
-    }
-  }
-} 
 
-otelcol.exporter.otlphttp "logs" {
-  client {
-    endpoint = "http://loki:3100/otlp"
-  }
 
-}
-
-otelcol.exporter.otlphttp "metrics" {
-  client {
-    endpoint = "http://prometheus:9090/api/v1/otlp"
-  }
-}
 
 // Receive pprof profiles from the Python services and forward to Pyroscope.
 pyroscope.receive_http "default" {
@@ -56,14 +43,9 @@ pyroscope.receive_http "default" {
     listen_address = "0.0.0.0"
     listen_port    = 9999
   }
-  forward_to = [pyroscope.write.default.receiver]
+  forward_to = [grafana_cloud.profiles.default.receiver]
 }
 
-pyroscope.write "default" {
-  endpoint {
-    url = "http://pyroscope:4040"
-  }
-}
 
 livedebugging {
   enabled = true

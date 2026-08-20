@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
 // AWS CloudWatch metrics → Prometheus — no AWS account required.
 //
 // Uses LocalStack to emulate CloudWatch locally. A companion `metric-seeder`
@@ -34,13 +39,8 @@ prometheus.exporter.cloudwatch "localstack" {
 // so there is no benefit in scraping more frequently.
 prometheus.scrape "cloudwatch" {
 	targets         = prometheus.exporter.cloudwatch.localstack.targets
-	forward_to      = [prometheus.remote_write.local.receiver]
+	forward_to      = [grafana_cloud.metrics.default.receiver]
 	scrape_interval = "60s"
 }
 
 // Remote-write to the local Prometheus instance.
-prometheus.remote_write "local" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
-}

@@ -1,24 +1,26 @@
-// NGINX Monitoring with Grafana Alloy.
-// Logs: tail access.log + error.log via loki.source.file, parse the access log
-// with a combined-format regex, and ship to Loki with method/status labels.
-// Metrics: scrape nginx-prometheus-exporter and remote_write to Prometheus.
+// NGINX access/error logs + stub_status metrics → Grafana Cloud
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-// --- logs pipeline ---
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
 
 local.file_match "nginx" {
 	path_targets = [
 		{
 			__path__ = "/var/log/nginx-data/access.log",
-			job      = "nginx",
+			job      = "integrations/nginx",
 			log_type = "access",
 		},
 		{
 			__path__ = "/var/log/nginx-data/error.log",
-			job      = "nginx",
+			job      = "integrations/nginx",
 			log_type = "error",
 		},
 	]
@@ -32,8 +34,6 @@ loki.source.file "nginx" {
 }
 
 loki.process "nginx" {
-	// Extract `method` and `status` from access logs (combined format).
-	// Error logs pass through unchanged.
 	stage.match {
 		selector = "{log_type=\"access\"}"
 
@@ -49,28 +49,15 @@ loki.process "nginx" {
 		}
 	}
 
-	forward_to = [loki.write.local.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}
-
-// --- metrics pipeline ---
-
-prometheus.scrape "nginx" {
+prometheus.scrape "integrations_nginx" {
 	targets = [{
 		__address__ = "nginx-exporter:9113",
-		job         = "nginx",
+		job         = "integrations/nginx",
 	}]
-	forward_to      = [prometheus.remote_write.local.receiver]
-	scrape_interval = "15s"
-}
-
-prometheus.remote_write "local" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+	forward_to = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

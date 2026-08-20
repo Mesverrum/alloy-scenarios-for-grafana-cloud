@@ -10,6 +10,9 @@ controller:
   type: daemonset
 
 alloy:
+  extraEnvFrom:
+    - secretRef:
+        name: grafana-cloud
   clustering:
     # Forms an Alloy cluster from the DaemonSet pods. Scrape components with
     # `clustering { enabled = true }` consistent-hash their targets across
@@ -45,6 +48,7 @@ alloy:
         scheme            = "https"
         metrics_path      = "/metrics/cadvisor"
         bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        scrape_interval   = "1m"
 
         tls_config {
           insecure_skip_verify = true
@@ -54,7 +58,7 @@ alloy:
           enabled = true
         }
 
-        forward_to = [prometheus.remote_write.default.receiver]
+        forward_to = [prometheus.remote_write.grafana_cloud.receiver]
       }
 
       // Discover all endpoints, then keep only the kube-state-metrics
@@ -77,16 +81,23 @@ alloy:
       prometheus.scrape "kube_state_metrics" {
         targets = discovery.relabel.kube_state_metrics.output
 
+        scrape_interval = "1m"
+
         clustering {
           enabled = true
         }
 
-        forward_to = [prometheus.remote_write.default.receiver]
+        forward_to = [prometheus.remote_write.grafana_cloud.receiver]
       }
 
-      // Send everything to the Prometheus installed by this scenario.
-      prometheus.remote_write "default" {
+      // Send everything to Grafana Cloud Metrics.
+      prometheus.remote_write "grafana_cloud" {
         endpoint {
-          url = "http://prometheus-server.meta.svc.cluster.local:80/api/v1/write"
+          url = sys.env("GC_PROM_URL")
+
+          basic_auth {
+            username = sys.env("GC_PROM_USER")
+            password = sys.env("GC_TOKEN")
+          }
         }
       }

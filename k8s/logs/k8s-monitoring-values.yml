@@ -1,11 +1,15 @@
 ---
 cluster:
-  name: meta-monitoring-tutorial
+  name: alloy-scenarios-cloud
 
 destinations:
   loki:
     type: loki
-    url: http://loki-gateway.meta.svc.cluster.local/loki/api/v1/push
+    urlFrom: sys.env("GC_LOKI_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_LOKI_USER")
+      passwordFrom: sys.env("GC_TOKEN")
 
 clusterEvents:
   enabled: true
@@ -26,5 +30,11 @@ podLogsViaKubernetesApi:
 collectors:
   alloy-singleton:
     presets: [singleton]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
   alloy-logs:
     presets: [clustered]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud

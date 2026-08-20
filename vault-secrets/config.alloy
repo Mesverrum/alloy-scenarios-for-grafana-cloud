@@ -1,8 +1,4 @@
-// vault-secrets scenario
-//
-// remote.vault pulls remote_write basic_auth credentials from HashiCorp
-// Vault at runtime. reread_frequency makes Alloy pick up rotated values
-// without a restart — see README for the rotation demo.
+// Vault holds Grafana Cloud remote_write credentials and reloads on rotation.
 
 livedebugging {
 	enabled = true
@@ -10,10 +6,8 @@ livedebugging {
 
 remote.vault "creds" {
 	server = "http://vault:8200"
-	// path = the KV mount; key = the secret path within that mount.
-	// Alloy handles the KV v2 /data/ prefix internally.
-	path = "secret"
-	key  = "alloy/remote-write"
+	path   = "secret"
+	key    = "alloy/remote-write"
 
 	reread_frequency = "30s"
 
@@ -26,13 +20,13 @@ prometheus.exporter.self "self" {}
 
 prometheus.scrape "self" {
 	targets         = prometheus.exporter.self.self.targets
-	forward_to      = [prometheus.remote_write.via_nginx.receiver]
-	scrape_interval = "10s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+	scrape_interval = "1m"
 }
 
-prometheus.remote_write "via_nginx" {
+prometheus.remote_write "grafana_cloud" {
 	endpoint {
-		url = "http://nginx-auth/api/v1/write"
+		url = sys.env("GC_PROM_URL")
 
 		basic_auth {
 			username = convert.nonsensitive(remote.vault.creds.data.username)

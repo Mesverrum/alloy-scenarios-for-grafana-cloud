@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.profiles "default" {}
 // #################################
 // #### Profiling Configuration ####
 // #################################
@@ -42,7 +47,7 @@ discovery.relabel "java" {
 // event = "cpu" for perf-based sampling where the kernel allows it.
 pyroscope.java "jvm" {
 	targets    = discovery.relabel.java.output
-	forward_to = [pyroscope.write.default.receiver]
+	forward_to = [grafana_cloud.profiles.default.receiver]
 
 	profiling_config {
 		interval    = "15s"
@@ -55,8 +60,3 @@ pyroscope.java "jvm" {
 }
 
 // Push the collected profiles to the local Pyroscope server.
-pyroscope.write "default" {
-	endpoint {
-		url = "http://pyroscope:4040"
-	}
-}

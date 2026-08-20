@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
 // ###################################################
 // #### Prometheus client metrics (pull / scrape model) ####
 // ###################################################
@@ -21,13 +26,8 @@ prometheus.scrape "store_apps" {
     { "__address__" = "csharp:9100", "service_name" = "shipping",  "language" = "csharp" },
   ]
 
-  scrape_interval = "5s"
-  scrape_timeout  = "5s" // must be <= scrape_interval
-  forward_to      = [prometheus.remote_write.local.receiver]
+  scrape_interval = "1m"
+  scrape_timeout  = "10s"
+  forward_to      = [grafana_cloud.metrics.default.receiver]
 }
 
-prometheus.remote_write "local" {
-  endpoint {
-    url = "http://prometheus:9090/api/v1/write"
-  }
-}

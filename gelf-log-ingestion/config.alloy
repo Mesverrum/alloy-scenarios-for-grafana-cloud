@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 livedebugging {
 	enabled = true
 }
@@ -9,7 +14,7 @@ loki.source.gelf "default" {
 
 // Relabel GELF metadata into useful labels
 loki.relabel "gelf" {
-	forward_to = [loki.write.local.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 
 	rule {
 		source_labels = ["__gelf_message_host"]
@@ -27,8 +32,3 @@ loki.relabel "gelf" {
 	}
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}

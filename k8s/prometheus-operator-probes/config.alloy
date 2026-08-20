@@ -1,5 +1,5 @@
 // Alloy as blackbox prober + Probe CR scraper for the Prometheus Operator.
-// Deploy with the steps in README.md.
+// Deploy with the steps in README.md. Credentials come from the grafana-cloud Secret.
 
 livedebugging {
   enabled = true
@@ -11,11 +11,16 @@ prometheus.exporter.blackbox "blackbox_exporter" {
 
 prometheus.operator.probes "blackbox" {
   namespaces = ["testns"]
-  forward_to = [prometheus.remote_write.local.receiver]
+  forward_to = [prometheus.remote_write.grafana_cloud.receiver]
 }
 
-prometheus.remote_write "local" {
+prometheus.remote_write "grafana_cloud" {
   endpoint {
-    url = "http://prometheus-server.meta.svc.cluster.local/api/v1/write"
+    url = sys.env("GC_PROM_URL")
+
+    basic_auth {
+      username = sys.env("GC_PROM_USER")
+      password = sys.env("GC_TOKEN")
+    }
   }
 }

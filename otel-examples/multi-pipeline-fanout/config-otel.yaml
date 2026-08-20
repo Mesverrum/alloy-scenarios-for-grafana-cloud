@@ -46,15 +46,15 @@ processors:
 exporters:
   # Primary: full-fidelity traces to Tempo
   otlp/tempo-primary:
-    endpoint: tempo:4317
+    endpoint: ${env:GC_OTLP_URL}
     tls:
-      insecure: true
+      insecure: false
 
   # Secondary: sampled + stripped traces to second Tempo instance
   otlp/tempo-secondary:
     endpoint: tempo-secondary:4317
     tls:
-      insecure: true
+      insecure: false
 
 service:
   extensions: [alloyengine]

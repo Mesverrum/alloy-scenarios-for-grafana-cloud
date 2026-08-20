@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 /*
  * Alloy Configuration for OpenTelemetry Trace Collection with Tail Sampling
  */
@@ -96,19 +101,11 @@ otelcol.processor.tail_sampling "default" {
 // Batch processor to improve performance
 otelcol.processor.batch "default" {
   output {
-    traces = [otelcol.exporter.otlp.tempo.input]
+    traces = [grafana_cloud.otlp.default.input]
   }
 }
 
 // Send sampled traces to Tempo
-otelcol.exporter.otlp "tempo" {
-  client {
-    endpoint = "tempo:4317"
-    tls {
-      insecure = true
-    }
-  }
-} 
 
 livedebugging {
   enabled = true

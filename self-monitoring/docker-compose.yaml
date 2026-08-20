@@ -1,26 +1,14 @@
 services:
-  prometheus:
-    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.13.1}
-    command:
-      - --web.enable-remote-write-receiver
-      - --enable-feature=native-histograms
-      - --config.file=/etc/prometheus/prometheus.yml
-    ports:
-      - 9090:9090/tcp
-
-  loki:
-    image: grafana/loki:${GRAFANA_LOKI_VERSION:-3.7.3}
-    ports:
-      - '3100:3100'
-    volumes:
-      - ./loki-config.yaml:/etc/loki/local-config.yaml
-    command: -config.file=/etc/loki/local-config.yaml
-
   alloy:
     image: grafana/alloy:${GRAFANA_ALLOY_VERSION:-v1.17.1}
     ports:
-      - 12345:12345 # Alloy HTTP server
+      - 12345:12345
+    env_file:
+      - ../.env
+    environment:
+      GC_DESTINATIONS_FILE: /etc/alloy/cloud/destinations.alloy
     volumes:
       - ./config.alloy:/etc/alloy/config.alloy
+      - ../_cloud/destinations.alloy:/etc/alloy/cloud/destinations.alloy
       - /var/run/docker.sock:/var/run/docker.sock
     command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy

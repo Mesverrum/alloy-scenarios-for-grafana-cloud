@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) — do not install in-cluster Tempo or Grafana. Values already export OTLP to Grafana Cloud. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`.
+
 # Monitor Kubernetes traces with Grafana Alloy and Tempo
 
 This scenario shows how to collect distributed traces with the [Kubernetes Monitoring Helm chart][k8s-monitoring] and forward them to Tempo.

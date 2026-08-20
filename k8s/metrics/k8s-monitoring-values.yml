@@ -1,11 +1,15 @@
 ---
 cluster:
-  name: meta-monitoring-tutorial
+  name: alloy-scenarios-cloud
 
 destinations:
   prometheus:
     type: prometheus
-    url: http://prometheus-server.meta.svc.cluster.local:80/api/v1/write
+    urlFrom: sys.env("GC_PROM_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PROM_USER")
+      passwordFrom: sys.env("GC_TOKEN")
 
 clusterMetrics:
   enabled: true
@@ -17,6 +21,9 @@ annotationAutodiscovery:
 collectors:
   alloy-metrics:
     presets: [clustered, statefulset]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
 
 telemetryServices:
   kube-state-metrics:

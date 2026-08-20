@@ -25,9 +25,9 @@ processors:
 
 exporters:
   otlphttp/prometheus:
-    endpoint: http://prometheus:9090/api/v1/otlp
+    endpoint: ${env:GC_OTLP_URL}
     tls:
-      insecure: true
+      insecure: false
 
 service:
   pipelines:

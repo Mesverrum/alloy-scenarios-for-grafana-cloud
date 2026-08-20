@@ -1,5 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
-
+grafana_cloud.logs "default" {}
 livedebugging {
   enabled = true
 }
@@ -11,14 +14,9 @@ local.file_match "local_files" {
  
 loki.source.file "log_scrape" {
     targets    = local.file_match.local_files.targets
-    forward_to = [loki.write.local.receiver]
+    forward_to = [grafana_cloud.logs.default.receiver]
     tail_from_end = true
 
 
 }
 
-loki.write "local" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
-}

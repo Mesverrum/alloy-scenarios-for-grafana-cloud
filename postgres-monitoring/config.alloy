@@ -1,27 +1,37 @@
-// ##############################################
-// #### PostgreSQL Metrics Configuration     ####
-// ##############################################
+// PostgreSQL metrics → Grafana Cloud
+// job label matches the Cloud PostgreSQL integration dashboard.
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-// Expose PostgreSQL metrics using the built-in postgres exporter.
-prometheus.exporter.postgres "example" {
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.postgres "integrations_postgres_exporter" {
 	data_source_names = ["postgresql://alloy:alloy@postgres:5432/alloy?sslmode=disable"]
 }
 
-// Scrape the postgres exporter targets.
-prometheus.scrape "postgres" {
-	targets    = prometheus.exporter.postgres.example.targets
-	forward_to = [prometheus.remote_write.default.receiver]
+discovery.relabel "integrations_postgres_exporter" {
+	targets = prometheus.exporter.postgres.integrations_postgres_exporter.targets
 
-	scrape_interval = "15s"
+	rule {
+		target_label = "job"
+		replacement  = "integrations/postgres_exporter"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "postgres-monitoring"
+	}
 }
 
-// Send metrics to the local Prometheus instance via remote write.
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_postgres_exporter" {
+	targets         = discovery.relabel.integrations_postgres_exporter.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

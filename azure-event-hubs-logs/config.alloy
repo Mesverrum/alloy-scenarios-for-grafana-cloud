@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 // Azure Event Hubs -> Loki, no Azure subscription required.
 //
 // loki.source.azure_event_hubs is a Kafka consumer pointed at Event Hubs'
@@ -13,7 +18,7 @@ loki.source.azure_event_hubs "activity_logs" {
 	fully_qualified_namespace = "eventhub:9093"
 	event_hubs                = ["insights-activity-logs"]
 	group_id                  = "$Default"
-	forward_to                = [loki.write.local.receiver]
+	forward_to                = [grafana_cloud.logs.default.receiver]
 
 	authentication {
 		mechanism         = "connection_string"
@@ -21,8 +26,3 @@ loki.source.azure_event_hubs "activity_logs" {
 	}
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}

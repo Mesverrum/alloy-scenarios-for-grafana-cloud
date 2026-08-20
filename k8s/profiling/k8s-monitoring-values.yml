@@ -1,11 +1,15 @@
 ---
 cluster:
-  name: meta-monitoring-tutorial
+  name: alloy-scenarios-cloud
 
 destinations:
   pyroscope:
     type: pyroscope
-    url: http://pyroscope.meta.svc.cluster.local:4040
+    urlFrom: sys.env("GC_PYRO_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PYRO_USER")
+      passwordFrom: sys.env("GC_TOKEN")
 
 profiling:
   enabled: true
@@ -16,3 +20,6 @@ profiling:
 collectors:
   alloy-profiles:
     presets: [privileged, daemonset]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud

@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) for product k8s o11y. This folder is the raw events pipeline to Grafana Cloud Logs. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`. Do not install in-cluster Loki or Grafana.
+
 # Collect Kubernetes events with Grafana Alloy
 
 This scenario shows how `loki.source.kubernetes_events` collects cluster events and forwards them to Loki.

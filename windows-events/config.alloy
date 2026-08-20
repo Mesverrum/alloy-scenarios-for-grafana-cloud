@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 // ###################################################################
 // Windows Security Event Log → Loki, with filtering and field labels
 // ###################################################################
@@ -8,9 +13,8 @@
 //   3. Promotes security-specific fields (subject_user_name,
 //      target_user_name, logon_type) to labels for SOC-style queries
 //
-// Run target: a Windows host with Alloy installed natively. The
-// docker-compose.yml in this directory only runs Loki + Grafana;
-// Alloy itself is a Windows service.
+// Run target: a Windows host with Alloy installed natively (Connections → Windows,
+// or Fleet Management). There is no docker-compose LGTM stack in this directory.
 
 livedebugging {}
 
@@ -74,11 +78,6 @@ loki.process "security" {
 		}
 	}
 
-	forward_to = [loki.write.endpoint.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 }
 
-loki.write "endpoint" {
-	endpoint {
-		url = "http://localhost:3100/loki/api/v1/push"
-	}
-}

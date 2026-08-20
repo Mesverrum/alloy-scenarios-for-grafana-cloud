@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 // ###############################
 // #### Main Logging Configuration ####
 // ###############################
@@ -35,7 +40,7 @@ discovery.relabel "logs_integrations_docker" {
 // This creates the processing pipeline that will parse logs from all supported languages
 // and forward them to Loki for storage and querying.
 helper.app_logs_parser "default" {
-  write_to = [loki.write.local.receiver]  // Send parsed logs to our Loki instance
+  write_to = [grafana_cloud.logs.default.receiver]  // Send parsed logs to our Loki instance
 }
 
 // Collect logs from all discovered Docker containers.
@@ -52,8 +57,3 @@ loki.source.docker "default" {
 // Configure Loki write endpoint for log storage.
 // This is where all parsed and enriched logs are finally stored for querying,
 // alerting, and analysis in Grafana or other tools.
-loki.write "local" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"  // Loki's standard push API endpoint
-  }
-} 

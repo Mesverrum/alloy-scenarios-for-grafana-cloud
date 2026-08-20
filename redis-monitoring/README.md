@@ -1,125 +1,55 @@
-# Redis metrics
+---
+os: [linux, windows]
+signals: [metrics]
+deploy: compose
+cloud_products: [integrations]
+---
 
-This scenario collects Redis metrics with the `prometheus.exporter.redis` component in Grafana Alloy.
-Alloy connects to Redis, scrapes exporter metrics, and remote-writes them to Prometheus.
-Grafana queries Prometheus through a provisioned data source.
+# Redis monitoring
+
+**POV path:** `$GC_GRAFANA_URL/connections/add-new-connection` → search **Redis**. This directory is an optional fake Redis with `job=integrations/redis`.
+
+Collect Redis metrics with `prometheus.exporter.redis` and remote-write them to **Grafana Cloud**. The `job` label is `integrations/redis` so the Cloud Redis integration dashboard can light up.
+
+Works on Windows and Linux via Docker Compose.
 
 ## Before you begin
 
-Ensure you have the following:
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- Repo-root `.env` copied from `.env.sample`
+- Ports **6379** and **12345** free on the host
 
-- [Docker][docker] and [Docker Compose][docker-compose].
-- Ports 6379 for Redis, 3000 for Grafana, 9090 for Prometheus, and 12345 for the Alloy UI free on the host.
-
-[docker]: https://docs.docker.com/get-docker/
-[docker-compose]: https://docs.docker.com/compose/install/
-
-## Understand the architecture
+## Architecture
 
 ```text
-+-------+       +-------+       +-------------+       +---------+
-| redis |       | Alloy |       | Prometheus  |       | Grafana |
-|       |<----->|       |------>|             |------>|         |
-+-------+       +-------+       +-------------+       +---------+
++-------+       +-------+       +----------------+
+| Redis |------>| Alloy |------>| Grafana Cloud  |
+| :6379 |       |       |       | Metrics        |
++-------+       +-------+       +----------------+
 ```
 
-- **redis**: Redis 8 on port 6379.
-- **Alloy**: Runs `config.alloy`. `prometheus.exporter.redis` connects to `redis:6379`, `prometheus.scrape` collects metrics, and `prometheus.remote_write` sends them to Prometheus. The configuration enables the Alloy UI debug view.
-- **Prometheus**: Stores metrics through its remote write receiver at `http://prometheus:9090/api/v1/write`.
-- **Grafana**: Queries Prometheus through a provisioned data source.
+## Run
 
-## Run the scenario
+**Windows:** `.\run-example.ps1 redis-monitoring`  
+**Linux:** `./run-example.sh redis-monitoring`
 
-1. Clone the repository: `git clone https://github.com/grafana/alloy-scenarios.git`
+Expect `redis` and `alloy` from `docker compose ps`.
 
-2. Install the scenario with one of these options:
+## Verify
 
-   **Option 1: From the scenario directory**
+- Alloy UI: http://localhost:12345
+- Cloud Grafana: `$GC_GRAFANA_URL` → Explore
 
-   Use the default image tags in `docker-compose.yml`.
+```text
+gcx metrics query 'redis_up{job="integrations/redis"}'
+```
 
-   - Go to the scenario: `cd alloy-scenarios/redis-monitoring`
-   - Deploy the scenario: `docker compose up -d`
+PromQL: `redis_up{job="integrations/redis"}`, `{job="integrations/redis"}`
 
-   **Option 2: From the repository root**
+## Stop
 
-   Use pinned image versions from `image-versions.env`.
+`docker compose down` from this directory.
 
-   - Deploy the scenario: `./run-example.sh redis-monitoring`
+## Customer handoff
 
-   **Option 3: From the scenario directory with pinned versions**
-
-   - Deploy the scenario: `docker compose --env-file ../image-versions.env up -d`
-
-3. From the `redis-monitoring` directory, check that all containers are up: `docker compose ps`
-
-   Expect `redis`, `alloy`, `prometheus`, and `grafana`.
-
-## Explore the services
-
-- **Grafana** at http://localhost:3000: **Explore** with the Prometheus data source. You do not need to log in.
-- **Alloy UI** at http://localhost:12345: Component graph for `prometheus.exporter.redis`, `prometheus.scrape`, and `prometheus.remote_write`. `config.alloy` enables the Alloy UI debug view.
-- **Prometheus** at http://localhost:9090: Redis metrics from remote write.
-- **Redis** at localhost:6379: Database instance Alloy monitors.
-
-## Understand the Alloy pipeline
-
-`config.alloy` defines the pipeline:
-
-1. **`prometheus.exporter.redis`**: Connects to `redis:6379` and exposes Redis metrics.
-2. **`prometheus.scrape`**: Scrapes the exporter targets.
-3. **`prometheus.remote_write`**: Sends metrics to `http://prometheus:9090/api/v1/write`.
-
-The `livedebugging` block enables the Alloy UI debug view.
-
-## Try it out
-
-1. Open Grafana at http://localhost:3000 and go to **Explore**.
-
-   Select the **Prometheus** data source and run these PromQL queries:
-
-   - `redis_up`: Whether Redis is reachable
-   - `redis_connected_clients`: Number of connected clients
-   - `redis_used_memory_bytes`: Memory usage
-   - `redis_commands_total`: Total commands processed
-   - `redis_keyspace_hits_total`: Cache hits
-   - `redis_keyspace_misses_total`: Cache misses
-
-2. Open the Alloy UI at http://localhost:12345.
-
-   Navigate to the component graph to verify `prometheus.exporter.redis` → `prometheus.scrape` → `prometheus.remote_write`.
-   Use the debug view to inspect metrics flowing through each component.
-
-## Customize the scenario
-
-- **Change the Redis address**: Edit `redis_addr` under `prometheus.exporter.redis` in `config.alloy`.
-- **Point at another Prometheus**: Update the remote write URL in `prometheus.remote_write` in `config.alloy`.
-
-## Troubleshoot common problems
-
-This section covers startup failures, missing metrics, and port conflicts.
-
-### Containers didn't start or exited unexpectedly
-
-Run `docker compose ps` to check the status of each container.
-If any container has exited, run `docker compose logs <SERVICE_NAME>` to read the failure reason.
-Replace `<SERVICE_NAME>` with the name of the service that exited, such as `redis`, `alloy`, or `prometheus`.
-
-### No Redis metrics in Prometheus
-
-In Grafana, select the **Prometheus** data source in **Explore** and run `redis_up`.
-Open the Alloy UI at http://localhost:12345 and check that `prometheus.exporter.redis` targets are up.
-
-### Port conflicts with other services
-
-Ports 6379, 3000, 9090, and 12345 must be free before you start the stack.
-If another service uses one of these ports, edit the port map in `docker-compose.yml` for the conflicting service before you run `docker compose up -d`.
-
-## Stop the scenario
-
-Run `docker compose down` from the `redis-monitoring` directory.
-
-## Next steps
-
-- Alloy `prometheus.exporter.redis` reference: https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.exporter.redis/
-- More examples: https://github.com/grafana/alloy-scenarios
+Copy `config.alloy` and `_cloud/destinations.alloy`. Point `GC_*` at the customer stack and replace `redis:6379` with the customer address.

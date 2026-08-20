@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) for product k8s o11y. Probe metrics remote-write to Grafana Cloud. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`. Do not install in-cluster Prometheus.
+
 # Probe resources with Grafana Alloy as the blackbox prober
 
 This scenario shows how Alloy runs `prometheus.exporter.blackbox` as a blackbox prober and `prometheus.operator.probes` discovers and scrapes Prometheus Operator `Probe` resources that target it. Alloy collects probe metrics and forwards them to Prometheus.

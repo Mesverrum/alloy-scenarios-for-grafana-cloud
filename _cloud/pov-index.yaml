@@ -1,0 +1,225 @@
+# Maps POV checkboxes to Cloud wizards or lab directories, plus gcx verify queries.
+# Curated products (k8s, CPO, DBs): follow wizard first — see curated-paths.md.
+# Agents: pick a row, open the wizard or start the lab, run the verify queries.
+
+scenarios:
+  - id: postgres-monitoring
+    dir: postgres-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    wizard: $GC_GRAFANA_URL/connections/add-new-connection
+    verify:
+      metrics:
+        - pg_up{job="integrations/postgres_exporter"}
+      grafana: Explore → Metrics → pg_up{job="integrations/postgres_exporter"}
+      integration_dashboard: PostgreSQL
+
+  - id: mysql-monitoring
+    dir: mysql-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - mysql_up{job="integrations/mysqld_exporter"}
+      grafana: Explore → Metrics → mysql_up{job="integrations/mysqld_exporter"}
+      integration_dashboard: MySQL
+
+  - id: redis-monitoring
+    dir: redis-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - redis_up{job="integrations/redis"}
+      grafana: Explore → Metrics → redis_up{job="integrations/redis"}
+      integration_dashboard: Redis
+
+  - id: memcached-monitoring
+    dir: memcached-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - memcached_up{job="integrations/memcached"}
+      grafana: Explore → Metrics → memcached_up{job="integrations/memcached"}
+      integration_dashboard: Memcached
+
+  - id: mongodb-monitoring
+    dir: mongodb-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - mongodb_up{job="integrations/mongodb_exporter"}
+      grafana: Explore → Metrics → mongodb_up{job="integrations/mongodb_exporter"}
+      integration_dashboard: MongoDB
+
+  - id: elasticsearch-monitoring
+    dir: elasticsearch-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - elasticsearch_cluster_health_up{job="integrations/elasticsearch"}
+
+  - id: mssql-monitoring
+    dir: mssql-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - mssql_up{job="integrations/mssql"}
+
+  - id: blackbox-probing
+    dir: blackbox-probing
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - probe_success{job="integrations/blackbox"}
+
+  - id: self-monitoring
+    dir: self-monitoring
+    os: [linux]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - alloy_build_info{job="integrations/alloy"}
+      logs:
+        - '{container="alloy"}'
+
+  - id: nginx-monitoring
+    dir: nginx-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - nginx_up{job="integrations/nginx"}
+      logs:
+        - '{job="integrations/nginx"}'
+
+  - id: rabbitmq-monitoring
+    dir: rabbitmq-monitoring
+    os: [linux]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - rabbitmq_build_info{job="integrations/rabbitmq"}
+      logs:
+        - '{job="integrations/rabbitmq"}'
+
+  - id: snmp
+    dir: snmp
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - '{job="integrations/snmp"}'
+
+  - id: docker-monitoring
+    dir: docker-monitoring
+    os: [linux]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: [integrations]
+    verify:
+      metrics:
+        - '{job="integrations/docker"}'
+      logs:
+        - '{job="integrations/docker"}'
+
+  - id: vcenter-monitoring
+    dir: vcenter-monitoring
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: [integrations]
+    wizard: $GC_GRAFANA_URL/connections/add-new-connection
+    verify:
+      metrics:
+        - '{job="integrations/vsphere"}'
+        - vcenter_cluster_cpu_effective{job="integrations/vsphere"}
+      logs:
+        - '{job="integrations/vsphere"}'
+      grafana: Explore → Metrics → {job="integrations/vsphere"}
+      integration_dashboard: vSphere
+
+  - id: alloy-pipeline-patterns
+    dir: alloy-pipeline-patterns
+    os: [linux, windows]
+    deploy: compose
+    signals: [metrics, logs]
+    cloud_products: []
+    verify:
+      metrics:
+        - app_up{job="alloy_pipeline_patterns"}
+        - http_requests_total{job="alloy_pipeline_patterns"}
+      logs:
+        - '{job="alloy_pipeline_patterns", pipeline="alloy_process"}'
+
+  - id: kubernetes-observability
+    dir: k8s
+    os: [linux]
+    deploy: wizard
+    cloud_products: [instrumentation-hub, kubernetes-monitoring, fleet]
+    wizard: $GC_GRAFANA_URL/a/grafana-k8s-app/configuration
+    verify:
+      grafana: Kubernetes Monitoring
+      gcx: gcx fleet collectors list
+
+  - id: kubernetes-gitops
+    dir: k8s/cloud-full
+    os: [linux]
+    deploy: helm
+    cloud_products: [kubernetes-monitoring]
+    verify:
+      grafana: $GC_GRAFANA_URL/a/grafana-k8s-app
+
+  - id: cloud-provider-aws
+    dir: cloudwatch-metrics
+    os: [any]
+    deploy: wizard
+    cloud_products: [cloud-provider-observability]
+    wizard: Observability → Cloud provider → AWS
+    verify:
+      grafana: Cloud Provider Observability → AWS
+
+  - id: cloud-provider-aws-logs-firehose
+    dir: aws-firehose-logs
+    os: [any]
+    deploy: wizard
+    cloud_products: [cloud-provider-observability]
+    wizard: Observability → Cloud provider → AWS → Logs with Firehose
+
+  - id: cloud-provider-azure
+    dir: azure-event-hubs-logs
+    os: [any]
+    deploy: wizard
+    cloud_products: [cloud-provider-observability]
+    wizard: Observability → Cloud provider → Azure
+    verify:
+      grafana: Cloud Provider Observability → Azure

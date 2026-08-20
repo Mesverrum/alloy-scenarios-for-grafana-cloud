@@ -1,0 +1,166 @@
+// Fleet Management pipeline body — paste into
+// Connections → Fleet Management → Remote configuration → Create pipeline → Custom.
+//
+// Prefer the vSphere integration template in that same picker if it is listed.
+// Use this file when you need 1m collection, skip-verify TLS, or the syslog path.
+//
+// Do not paste remotecfg, import.file, or remote_write. Fleet appends destinations.
+// Collector env: VCENTER_ENDPOINT, VCENTER_USERNAME, VCENTER_PASSWORD.
+// Alloy must run with --stability.level=experimental (otelcol.receiver.vcenter).
+// Match collectors with role=vsphere (Linux jump host, not the VCSA).
+
+otelcol.receiver.vcenter "integrations_vsphere" {
+	endpoint = sys.env("VCENTER_ENDPOINT")
+	username = sys.env("VCENTER_USERNAME")
+	password = sys.env("VCENTER_PASSWORD")
+
+	collection_interval = "1m"
+
+	tls {
+		insecure_skip_verify = true
+	}
+
+	output {
+		metrics = [otelcol.processor.batch.integrations_vsphere.input]
+	}
+}
+
+otelcol.processor.batch "integrations_vsphere" {
+	output {
+		metrics = [otelcol.processor.transform.integrations_vsphere.input]
+	}
+}
+
+otelcol.processor.transform "integrations_vsphere" {
+	error_mode = "ignore"
+
+	metric_statements {
+		context = "resource"
+		statements = [
+			"set(attributes[\"job\"], \"integrations/vsphere\") where attributes[\"job\"] == nil",
+		]
+	}
+
+	output {
+		metrics = [otelcol.exporter.prometheus.integrations_vsphere.input]
+	}
+}
+
+otelcol.exporter.prometheus "integrations_vsphere" {
+	forward_to                       = [prometheus.remote_write.metrics_service.receiver]
+	resource_to_telemetry_conversion = true
+}
+
+loki.source.syslog "integrations_vsphere" {
+	forward_to = [loki.process.integrations_vsphere_drop.receiver]
+
+	listener {
+		address             = "0.0.0.0:1514"
+		protocol            = "tcp"
+		use_rfc5424_message = true
+		labels = {
+			job = "integrations/vsphere",
+		}
+	}
+
+	listener {
+		address             = "0.0.0.0:1514"
+		protocol            = "udp"
+		use_rfc5424_message = true
+		labels = {
+			job = "integrations/vsphere",
+		}
+	}
+}
+
+loki.process "integrations_vsphere_drop" {
+	forward_to = [loki.process.integrations_vsphere_labels.receiver]
+
+	stage.regex {
+		expression = `^<\S+>\S* \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z (?<instance>\S+) (?<log_type>\S+) .*$`
+	}
+
+	stage.labels {
+		values = {
+			log_type = "",
+			instance = "",
+		}
+	}
+
+	stage.match {
+		selector            = `{log_type=~".+", log_type!="vpxd-main", log_type!="vpxd-svcs-main", log_type!="analytics", log_type!="applmgmt"}`
+		action              = "drop"
+		drop_counter_reason = "vsphere_non_priority_logs"
+	}
+}
+
+loki.process "integrations_vsphere_labels" {
+	forward_to = [loki.write.grafana_cloud_loki.receiver]
+
+	stage.match {
+		selector = `{log_type="vpxd-main"}`
+
+		stage.regex {
+			expression = `^.*vpxd-main \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z (?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="vpxd-svcs-main"}`
+
+		stage.regex {
+			expression = `^.*vpxd-svcs-main \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z \[\S+ \[\S*\] (?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="applmgmt"}`
+
+		stage.regex {
+			expression = `^.+applmgmt \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+ \S+ \S+ \[\S+\](?<level>\w+):.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="analytics"}`
+
+		stage.regex {
+			expression = `^.*analytics \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z \S+\s+(?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.template {
+		source   = "level"
+		template = "{{ ToLower .Value }}"
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+}

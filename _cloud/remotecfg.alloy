@@ -1,0 +1,23 @@
+// Fleet Management — the only Alloy config that should live on disk.
+//
+// Paste into the collector's local config (root file, not a module).
+// Everything else (integrations, relabel, destinations) is a Fleet pipeline.
+//
+// Copy URL + username from Fleet Management → onboarding / remote configuration.
+// Token: same Cloud access policy as ingest, or the Fleet-scoped token the UI shows.
+
+remotecfg {
+	url = sys.env("GC_FLEET_URL")
+
+	basic_auth {
+		username = sys.env("GC_FLEET_USER")
+		password = sys.env("GC_TOKEN")
+	}
+
+	id = constants.hostname
+	attributes = {
+		env  = "lab",
+		role = "changeme", // linux-node | windows | database | vsphere | ...
+	}
+	poll_frequency = "1m"
+}

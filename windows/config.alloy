@@ -1,3 +1,9 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
 // ####################################
 // Windows Server Metrics Configuration
 // ####################################
@@ -8,15 +14,11 @@ prometheus.exporter.windows "default" {
 
 // Configure a prometheus.scrape component to collect windows metrics.
 prometheus.scrape "example" {
-  targets    = prometheus.exporter.windows.default.targets
-  forward_to = [prometheus.remote_write.demo.receiver]
+  targets         = prometheus.exporter.windows.default.targets
+  scrape_interval = "1m"
+  forward_to      = [grafana_cloud.metrics.default.receiver]
 }
 
-prometheus.remote_write "demo" {
-  endpoint {
-    url = "http://localhost:9090/api/v1/write"
-  }
-}
 
 // ####################################
 // Windows Server Logs Configuration
@@ -35,7 +37,7 @@ loki.source.windowsevent "System"  {
 }
 
 loki.process "endpoint" {
-  forward_to = [loki.write.endpoint.receiver]
+  forward_to = [grafana_cloud.logs.default.receiver]
   stage.json {
       expressions = {
           message = "",
@@ -86,10 +88,5 @@ stage.output {
 }
 
 
-loki.write "endpoint" {
-    endpoint {
-        url ="http://localhost:3100/loki/api/v1/push"
-    }
-}
 
 livedebugging{}

@@ -2,36 +2,6 @@ services:
   # Prometheus stores the metrics the Alloy cluster scrapes.
   # --query.lookback-delta=1m makes a stopped node's stale series disappear
   # quickly, so the rebalance is easy to see in the dashboard.
-  prometheus:
-    image: prom/prometheus:${PROMETHEUS_VERSION:-v3.13.1}
-    command:
-      - --web.enable-remote-write-receiver
-      - --enable-feature=native-histograms
-      - --query.lookback-delta=1m
-      - --config.file=/etc/prometheus/prometheus.yml
-    ports:
-      - 9090:9090/tcp
-    volumes:
-      - ./prom-config.yaml:/etc/prometheus/prometheus.yml
-
-  # Grafana, pre-provisioned with the Prometheus datasource and the
-  # "Alloy clustering" dashboard. No login required.
-  grafana:
-    image: grafana/grafana:${GRAFANA_VERSION:-13.1.0}
-    environment:
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_BASIC_ENABLED=false
-    volumes:
-      - ./grafana:/etc/grafana/provisioning
-    ports:
-      - 3000:3000/tcp
-    depends_on:
-      - prometheus
-
-  # The pool of synthetic scrape targets the cluster shards across its nodes.
-  # node-exporter serves metrics on :9100 and is labeled so Alloy's
-  # discovery.docker can find it. Scaled to 9 replicas; no host ports published.
   target:
     image: quay.io/prometheus/node-exporter:${NODE_EXPORTER_VERSION:-v1.9.1}
     labels:
@@ -47,10 +17,15 @@ services:
   # of each one.
   alloy-1:
     image: grafana/alloy:${GRAFANA_ALLOY_VERSION:-v1.17.1}
+    env_file:
+      - ../.env
+    environment:
+      GC_DESTINATIONS_FILE: /etc/alloy/cloud/destinations.alloy
     hostname: alloy-1
     ports:
       - 12345:12345
     volumes:
+      - ../_cloud/destinations.alloy:/etc/alloy/cloud/destinations.alloy
       - ./config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock
     command:
@@ -60,15 +35,18 @@ services:
       - --cluster.join-addresses=alloy-1:12345,alloy-2:12345,alloy-3:12345
       - --storage.path=/var/lib/alloy/data
       - /etc/alloy/config.alloy
-    depends_on:
-      - prometheus
 
   alloy-2:
     image: grafana/alloy:${GRAFANA_ALLOY_VERSION:-v1.17.1}
+    env_file:
+      - ../.env
+    environment:
+      GC_DESTINATIONS_FILE: /etc/alloy/cloud/destinations.alloy
     hostname: alloy-2
     ports:
       - 12346:12345
     volumes:
+      - ../_cloud/destinations.alloy:/etc/alloy/cloud/destinations.alloy
       - ./config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock
     command:
@@ -78,15 +56,18 @@ services:
       - --cluster.join-addresses=alloy-1:12345,alloy-2:12345,alloy-3:12345
       - --storage.path=/var/lib/alloy/data
       - /etc/alloy/config.alloy
-    depends_on:
-      - prometheus
 
   alloy-3:
     image: grafana/alloy:${GRAFANA_ALLOY_VERSION:-v1.17.1}
+    env_file:
+      - ../.env
+    environment:
+      GC_DESTINATIONS_FILE: /etc/alloy/cloud/destinations.alloy
     hostname: alloy-3
     ports:
       - 12347:12345
     volumes:
+      - ../_cloud/destinations.alloy:/etc/alloy/cloud/destinations.alloy
       - ./config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock
     command:
@@ -96,5 +77,3 @@ services:
       - --cluster.join-addresses=alloy-1:12345,alloy-2:12345,alloy-3:12345
       - --storage.path=/var/lib/alloy/data
       - /etc/alloy/config.alloy
-    depends_on:
-      - prometheus

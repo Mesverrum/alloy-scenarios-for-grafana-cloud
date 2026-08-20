@@ -1,24 +1,25 @@
-// RabbitMQ Monitoring with Grafana Alloy.
-// Metrics: scrape RabbitMQ's built-in Prometheus endpoint.
-// Logs: collect RabbitMQ container logs from Docker and ship them to Loki.
+// RabbitMQ Prometheus endpoint + container logs → Grafana Cloud
+// Docker log collection needs unix:///var/run/docker.sock (Linux/WSL).
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-prometheus.scrape "rabbitmq" {
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
+
+prometheus.scrape "integrations_rabbitmq" {
 	targets = [{
 		__address__ = "rabbitmq:15692",
-		job         = "rabbitmq",
+		job         = "integrations/rabbitmq",
 	}]
-	forward_to      = [prometheus.remote_write.local.receiver]
-	scrape_interval = "15s"
-}
-
-prometheus.remote_write "local" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+	forward_to = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }
 
 discovery.docker "linux" {
@@ -36,7 +37,7 @@ discovery.relabel "rabbitmq_logs" {
 
 	rule {
 		target_label = "job"
-		replacement  = "rabbitmq"
+		replacement  = "integrations/rabbitmq"
 	}
 
 	rule {
@@ -50,11 +51,5 @@ loki.source.docker "rabbitmq" {
 	host          = "unix:///var/run/docker.sock"
 	targets       = discovery.docker.linux.targets
 	relabel_rules = discovery.relabel.rabbitmq_logs.rules
-	forward_to    = [loki.write.local.receiver]
-}
-
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
+	forward_to    = [grafana_cloud.logs.default.receiver]
 }

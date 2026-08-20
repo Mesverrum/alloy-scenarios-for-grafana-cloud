@@ -1,6 +1,8 @@
 # Windows security event logs
 
-This scenario shows how to collect Windows Security event log entries and forward them to Loki with filtering and field extraction tuned for SOC-style queries.
+**POV path:** native Alloy on the Windows host + Grafana Cloud Logs (`config.alloy` already uses `_cloud/destinations.alloy`). Fleet Management for config at scale. Do not run local Loki or Grafana.
+
+This scenario shows how to collect Windows Security event log entries and forward them to Grafana Cloud Logs with filtering and field extraction tuned for SOC-style queries.
 Alloy runs as a Windows service on the monitored host, drops high-volume noise event IDs, and promotes security fields such as `event_id` and `target_user_name` to labels.
 You run Loki and Grafana in Docker on the Windows host or on a separate backend machine, then point `loki.write.endpoint` in `config.alloy` at that backend.
 

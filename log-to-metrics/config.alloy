@@ -1,3 +1,9 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
 livedebugging {
 	enabled = true
 }
@@ -14,7 +20,7 @@ loki.source.file "requests" {
 }
 
 loki.process "requests" {
-	forward_to = [loki.write.local.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 
 	stage.regex {
 		expression = "method=(?P<method>\\S+) path=(?P<path>\\S+) status=(?P<status>\\d{3}) duration=(?P<duration>[0-9.]+)s"
@@ -48,20 +54,15 @@ loki.process "requests" {
 	}
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}
 
 prometheus.scrape "derived_metrics" {
 	targets         = [{"__address__" = "127.0.0.1:12345"}]
 	forward_to      = [prometheus.relabel.derived_metrics.receiver]
-	scrape_interval = "5s"
+	scrape_interval = "1m"
 }
 
 prometheus.relabel "derived_metrics" {
-	forward_to = [prometheus.remote_write.local.receiver]
+	forward_to = [grafana_cloud.metrics.default.receiver]
 
 	rule {
 		source_labels = ["__name__"]
@@ -70,8 +71,3 @@ prometheus.relabel "derived_metrics" {
 	}
 }
 
-prometheus.remote_write "local" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
-}

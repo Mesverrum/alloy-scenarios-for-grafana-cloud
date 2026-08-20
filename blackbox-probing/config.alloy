@@ -1,12 +1,17 @@
-// --- Remote Write to Prometheus ---
-prometheus.remote_write "remote" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+// Blackbox HTTP probes → Grafana Cloud
+// Probes the local nginx demo and grafana.com (no local Prometheus).
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
 }
 
-// --- Blackbox Exporter Configuration ---
-prometheus.exporter.blackbox "default" {
+livedebugging {
+	enabled = true
+}
+
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.blackbox "integrations_blackbox" {
 	config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
 
 	target {
@@ -16,20 +21,24 @@ prometheus.exporter.blackbox "default" {
 	}
 
 	target {
-		name    = "prometheus"
-		address = "http://prometheus:9090"
+		name    = "grafana_com"
+		address = "https://grafana.com"
 		module  = "http_2xx"
 	}
 }
 
-// --- Blackbox Scrape Configuration ---
-prometheus.scrape "blackbox_targets" {
-	scrape_interval = "15s"
-	targets         = prometheus.exporter.blackbox.default.targets
-	forward_to      = [prometheus.remote_write.remote.receiver]
+discovery.relabel "integrations_blackbox" {
+	targets = prometheus.exporter.blackbox.integrations_blackbox.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/blackbox"
+	}
 }
 
-// --- Enable Live Debugging ---
-livedebugging {
-	enabled = true
+prometheus.scrape "integrations_blackbox" {
+	targets         = discovery.relabel.integrations_blackbox.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

@@ -1,0 +1,116 @@
+// Fleet Management pipeline body — paste into a custom pipeline, or splice
+// the rules into an integration template (Postgres, Linux Node, …).
+//
+// There is no Cloud integration for "relabel cookbook". This is the paste.
+// Do not include remotecfg or remote_write. Fleet appends destinations.
+//
+// Wire-up: point your prometheus.scrape forward_to at prometheus.relabel.shaped
+// and your loki.source.* forward_to at loki.process.shaped. Then this pipeline
+// writes to the Fleet-injected destinations.
+
+prometheus.relabel "shaped" {
+	forward_to = [prometheus.remote_write.metrics_service.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "http_requests_total|app_up"
+		action        = "keep"
+	}
+
+	rule {
+		regex  = "request_id|user_id"
+		action = "labeldrop"
+	}
+
+	rule {
+		source_labels = ["route"]
+		regex         = "(/api/(?:orders|users))/[0-9]+"
+		target_label  = "route"
+		replacement   = "$1/:id"
+		action        = "replace"
+	}
+
+	rule {
+		source_labels = ["method"]
+		target_label  = "http_method"
+		action        = "replace"
+	}
+
+	rule {
+		regex  = "method"
+		action = "labeldrop"
+	}
+
+	rule {
+		target_label = "pipeline"
+		replacement  = "alloy_relabel"
+	}
+}
+
+loki.process "shaped" {
+	forward_to = [loki.write.grafana_cloud_loki.receiver]
+
+	stage.json {
+		expressions = {
+			level      = "level",
+			method     = "method",
+			path       = "path",
+			status     = "status",
+			request_id = "request_id",
+			msg        = "msg",
+			service    = "service",
+		}
+	}
+
+	stage.drop {
+		source     = "path"
+		expression = "^/(health|ready)$"
+	}
+
+	stage.drop {
+		source     = "level"
+		expression = "debug"
+	}
+
+	stage.replace {
+		expression = "(/api/(?:orders|users))/[0-9]+"
+		source     = "path"
+		replace    = "$1/:id"
+	}
+
+	stage.static_labels {
+		values = {
+			pipeline = "alloy_process",
+		}
+	}
+
+	stage.labels {
+		values = {
+			level   = "",
+			method  = "",
+			status  = "",
+			service = "",
+		}
+	}
+
+	stage.structured_metadata {
+		values = {
+			request_id = "",
+			path       = "",
+		}
+	}
+
+	stage.match {
+		selector = `{level="error"}`
+
+		stage.static_labels {
+			values = {
+				alert_worthy = "true",
+			}
+		}
+	}
+
+	stage.output {
+		source = "msg"
+	}
+}

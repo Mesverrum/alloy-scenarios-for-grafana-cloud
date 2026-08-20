@@ -1,4 +1,7 @@
 alloy:
+  extraEnvFrom:
+    - secretRef:
+        name: grafana-cloud
   configMap:
     content: |
       // placeholder — use config.alloy from this directory

@@ -1,11 +1,16 @@
 ---
 cluster:
-  name: meta-monitoring-tutorial
+  name: alloy-scenarios-cloud
 
 destinations:
   tempo:
     type: otlp
-    url: http://tempo.meta.svc.cluster.local:4317
+    urlFrom: sys.env("GC_OTLP_URL")
+    protocol: http
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_OTLP_USER")
+      passwordFrom: sys.env("GC_TOKEN")
     metrics:
       enabled: false
     logs:
@@ -30,3 +35,6 @@ applicationObservability:
 collectors:
   alloy-receiver:
     presets: [deployment]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud

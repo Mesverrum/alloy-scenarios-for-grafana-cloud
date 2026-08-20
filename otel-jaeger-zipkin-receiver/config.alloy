@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 /*
  * Alloy Configuration for Jaeger and Zipkin Trace Ingestion
  */
@@ -24,16 +29,8 @@ otelcol.receiver.zipkin "default" {
 // Batch processor to improve performance
 otelcol.processor.batch "default" {
   output {
-    traces = [otelcol.exporter.otlp.tempo.input]
+    traces = [grafana_cloud.otlp.default.input]
   }
 }
 
 // Send traces to Tempo for storage and visualization
-otelcol.exporter.otlp "tempo" {
-  client {
-    endpoint = "tempo:4317"
-    tls {
-      insecure = true
-    }
-  }
-}

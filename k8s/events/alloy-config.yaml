@@ -4,7 +4,9 @@
 # Pipeline:
 #   loki.source.kubernetes_events  (cluster-wide events feed)
 #     → loki.process               (parse JSON, promote labels)
-#     → loki.write                 (push to Loki in this cluster)
+#     → loki.write                 (push to Grafana Cloud Logs)
+#
+# Create the grafana-cloud Secret first (see ../CLOUD.md).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -52,11 +54,16 @@ data:
         }
       }
 
-      forward_to = [loki.write.loki.receiver]
+      forward_to = [loki.write.grafana_cloud.receiver]
     }
 
-    loki.write "loki" {
+    loki.write "grafana_cloud" {
       endpoint {
-        url = "http://loki-gateway.meta.svc.cluster.local/loki/api/v1/push"
+        url = sys.env("GC_LOKI_URL")
+
+        basic_auth {
+          username = sys.env("GC_LOKI_USER")
+          password = sys.env("GC_TOKEN")
+        }
       }
     }

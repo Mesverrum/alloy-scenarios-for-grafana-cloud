@@ -1,5 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
-
+grafana_cloud.logs "default" {}
 livedebugging {
   enabled = true
 }
@@ -16,11 +19,6 @@ loki.source.syslog "local" {
     labels   = { component = "loki.source.syslog", protocol = "udp"}
   }
 
-  forward_to = [loki.write.local.receiver]
+  forward_to = [grafana_cloud.logs.default.receiver]
 }
 
-loki.write "local" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
-}

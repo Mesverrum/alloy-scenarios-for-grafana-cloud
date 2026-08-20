@@ -1,91 +1,79 @@
-// ###############################
-// #### Metrics Configuration ####
-// ###############################
+// Docker cAdvisor metrics + container logs → Grafana Cloud
+// Needs the Docker socket (Linux/WSL).
 
-// Host Cadvisor on the Docker socket to expose container metrics.
-prometheus.exporter.cadvisor "example" {
-  docker_only = true
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
 }
 
-discovery.relabel "example" {
-    targets = prometheus.exporter.cadvisor.example.targets
-
-    rule {
-        target_label = "job"
-        replacement  = "integrations/docker"
-    }
-
-    rule {
-        target_label = "instance"
-        replacement  = constants.hostname
-    }
+livedebugging {
+	enabled = true
 }
 
-// Configure a prometheus.scrape component to collect cadvisor metrics.
-prometheus.scrape "scraper" {
-  targets    = discovery.relabel.example.output
-  forward_to = [ prometheus.remote_write.demo.receiver ]
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
 
-
-  scrape_interval = "10s"
+prometheus.exporter.cadvisor "integrations_docker" {
+	docker_only = true
 }
 
-// Configure a prometheus.remote_write component to send metrics to a Prometheus server.
-prometheus.remote_write "demo" {
-  endpoint {
-    url = "http://prometheus:9090/api/v1/write"
-  }
+discovery.relabel "integrations_docker" {
+	targets = prometheus.exporter.cadvisor.integrations_docker.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/docker"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
 }
 
-// ###############################
-// #### Logging Configuration ####
-// ###############################
+prometheus.scrape "integrations_docker" {
+	targets    = discovery.relabel.integrations_docker.output
+	forward_to = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	// OSS used 10s (6x DPM) — do not restore that for a Cloud POV.
+	scrape_interval = "1m"
+}
 
-// Discover Docker containers and extract metadata.
 discovery.docker "linux" {
-  host = "unix:///var/run/docker.sock"
+	host = "unix:///var/run/docker.sock"
 }
 
-// Define a relabeling rule to create a service name from the container name.
 discovery.relabel "logs_integrations_docker" {
-      targets = []
-  
-      rule {
-          source_labels = ["__meta_docker_container_name"]
-          regex = "/(.*)"
-          target_label = "container_name"
-      }
+	targets = []
 
-     rule {
-        target_label = "instance"
-        replacement  = constants.hostname
-    }
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container_name"
+	}
 
-  }
+	rule {
+		target_label = "instance"
+		replacement  = constants.hostname
+	}
 
+	rule {
+		target_label = "job"
+		replacement  = "integrations/docker"
+	}
+}
 
-// Configure a loki.source.docker component to collect logs from Docker containers.
 loki.source.docker "default" {
-  host       = "unix:///var/run/docker.sock"
-  targets    = discovery.docker.linux.targets
-  relabel_rules = discovery.relabel.logs_integrations_docker.rules
-  forward_to = [loki.process.docker_logs.receiver]
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.linux.targets
+	relabel_rules = discovery.relabel.logs_integrations_docker.rules
+	forward_to    = [loki.process.docker_logs.receiver]
 }
 
-// Process and filter Docker logs before sending to Loki.
-// Example: Drop logs from infrastructure containers.
-// Modify the regex pattern to match container names you want to exclude.
 loki.process "docker_logs" {
-  forward_to = [loki.write.local.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 
-  stage.drop {
-    source     = "container_name"
-    expression = "(alloy|grafana|loki)"
-  }
-}
-
-loki.write "local" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
+	stage.drop {
+		source     = "container_name"
+		expression = "(alloy)"
+	}
 }

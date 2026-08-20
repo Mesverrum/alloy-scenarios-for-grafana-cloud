@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 //listen to api requests for incomming logs from OCP
 loki.source.api "listener" {
     http {
@@ -34,8 +39,10 @@ loki.process "redirect_env" {
 		selector = "{hostnameLabel =~ \"tos.*\"}"
 		
 		//default for test
-		stage.tenant {
-			value = "test_loki_app"
+		stage.static_labels {
+			values = {
+				tenant = "test_loki_app",
+			}
 		}		
 		
 		//take main payload
@@ -59,8 +66,10 @@ loki.process "redirect_env" {
 		  pipeline_name = "Audit log routing"
 		  selector = "{loggerLabel = \"audit\"}"
 		
-		  stage.tenant {
-			value = "test_loki_audit"
+		  stage.static_labels {
+			values = {
+				tenant = "test_loki_audit",
+			}
 		  }		
 	}
 	
@@ -69,8 +78,10 @@ loki.process "redirect_env" {
 		selector = "{hostnameLabel !~ \"tos.*\"}"
 		
 		//default value - app
-		stage.tenant {
-			value = "loki_app"
+		stage.static_labels {
+			values = {
+				tenant = "loki_app",
+			}
 		}		
 				
 		//take main payload
@@ -94,17 +105,14 @@ loki.process "redirect_env" {
 		  pipeline_name = "Audit log routing"
 		  selector = "{loggerLabel = \"audit\"}"
 		
-		  stage.tenant {
-			value = "loki_audit"
+		  stage.static_labels {
+			values = {
+				tenant = "loki_audit",
+			}
 		  }
 	   }
 	}
 	
-	forward_to = [loki.write.loki_default.receiver]
+	forward_to = [grafana_cloud.logs.default.receiver]
 }
 
-loki.write "loki_default" {
-  endpoint {
-    url = "http://<loki_endpoint>:<loki_port>/loki/api/v1/push"
-  }
-}

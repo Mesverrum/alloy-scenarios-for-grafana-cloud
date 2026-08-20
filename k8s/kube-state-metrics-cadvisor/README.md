@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) for product k8s o11y. This folder is a raw Alloy DaemonSet that remote-writes to Grafana Cloud. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`. Do not install in-cluster Prometheus or Grafana.
+
 # Monitor Kubernetes with kube-state-metrics and cAdvisor using a standalone Alloy DaemonSet
 
 > Unlike the other scenarios in `k8s/`, this one does **not** use the k8s-monitoring Helm chart. It deploys Alloy directly with the [grafana/alloy](https://github.com/grafana/alloy/tree/main/operations/helm/charts/alloy) chart so you can see the raw collection pipeline — `discovery.kubernetes` → `prometheus.scrape` → `prometheus.remote_write` — that higher-level charts generate for you.

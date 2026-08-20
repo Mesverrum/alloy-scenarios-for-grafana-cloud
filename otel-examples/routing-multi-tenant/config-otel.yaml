@@ -62,12 +62,12 @@ processors:
 
 exporters:
   otlphttp/loki-team-a:
-    endpoint: http://loki:3100/otlp
+    endpoint: ${env:GC_OTLP_URL}
     headers:
       X-Scope-OrgID: team-a
 
   otlphttp/loki-team-b:
-    endpoint: http://loki:3100/otlp
+    endpoint: ${env:GC_OTLP_URL}
     headers:
       X-Scope-OrgID: team-b
 

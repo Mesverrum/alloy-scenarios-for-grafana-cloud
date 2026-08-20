@@ -1,22 +1,37 @@
-// Redis Monitoring with Grafana Alloy
-// This configuration scrapes Redis metrics using the built-in prometheus.exporter.redis component
-// and remote writes them to Prometheus.
+// Redis metrics → Grafana Cloud
+// job label matches the Cloud Redis integration dashboard.
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-prometheus.exporter.redis "default" {
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.redis "integrations_redis" {
 	redis_addr = "redis:6379"
 }
 
-prometheus.scrape "redis" {
-	targets    = prometheus.exporter.redis.default.targets
-	forward_to = [prometheus.remote_write.default.receiver]
+discovery.relabel "integrations_redis" {
+	targets = prometheus.exporter.redis.integrations_redis.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/redis"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "redis-monitoring"
+	}
 }
 
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_redis" {
+	targets         = discovery.relabel.integrations_redis.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

@@ -47,9 +47,9 @@ exporters:
 
   # Tier 2: Write to Tempo
   otlp/tempo:
-    endpoint: tempo:4317
+    endpoint: ${env:GC_OTLP_URL}
     tls:
-      insecure: true
+      insecure: false
 
 service:
   extensions: [alloyengine]

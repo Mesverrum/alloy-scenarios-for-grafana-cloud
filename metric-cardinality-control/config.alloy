@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
 livedebugging {
 	enabled = true
 }
@@ -15,13 +20,13 @@ prometheus.scrape "cardinality_demo" {
 	]
 
 	job_name        = "metric-cardinality-control"
-	scrape_interval = "5s"
-	scrape_timeout  = "4s"
+	scrape_interval = "1m"
+	scrape_timeout  = "10s"
 }
 
 // Keep the original demo series, adding only the comparison label.
 prometheus.relabel "before" {
-	forward_to = [prometheus.remote_write.local.receiver]
+	forward_to = [grafana_cloud.metrics.default.receiver]
 
 	rule {
 		target_label = "pipeline"
@@ -31,7 +36,7 @@ prometheus.relabel "before" {
 
 // Apply representative cardinality controls before remote writing the samples.
 prometheus.relabel "after" {
-	forward_to = [prometheus.remote_write.local.receiver]
+	forward_to = [grafana_cloud.metrics.default.receiver]
 
 	rule {
 		source_labels = ["__name__"]
@@ -58,8 +63,3 @@ prometheus.relabel "after" {
 	}
 }
 
-prometheus.remote_write "local" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
-}

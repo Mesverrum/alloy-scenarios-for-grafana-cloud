@@ -51,7 +51,7 @@ processors:
 
 exporters:
   otlphttp/loki:
-    endpoint: http://loki:3100/otlp
+    endpoint: ${env:GC_OTLP_URL}
 
 service:
   extensions: [alloyengine]

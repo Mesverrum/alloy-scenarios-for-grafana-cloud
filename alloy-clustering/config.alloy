@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
 // alloy-clustering
 //
 // All three Alloy nodes run this same config and form a cluster (clustering is
@@ -42,8 +47,8 @@ discovery.relabel "targets" {
 // only the targets the cluster assigns to it -- roughly 1/N of the pool.
 prometheus.scrape "clustered" {
 	targets         = discovery.relabel.targets.output
-	forward_to      = [prometheus.remote_write.default.receiver]
-	scrape_interval = "15s"
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	scrape_interval = "1m"
 
 	clustering {
 		enabled = true
@@ -53,12 +58,3 @@ prometheus.scrape "clustered" {
 // Stamp every sample with the node that scraped it. Query
 // count by (scraped_by) (up{job="clustered-targets"}) in Grafana to see the
 // distribution -- and watch it rebalance when you stop or start a node.
-prometheus.remote_write "default" {
-	external_labels = {
-		scraped_by = constants.hostname,
-	}
-
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
-}

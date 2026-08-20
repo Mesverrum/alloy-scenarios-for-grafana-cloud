@@ -65,12 +65,12 @@ processors:
 
 exporters:
   otlp/tempo:
-    endpoint: tempo:4317
+    endpoint: ${env:GC_OTLP_URL}
     tls:
-      insecure: true
+      insecure: false
 
   otlphttp/loki:
-    endpoint: http://loki:3100/otlp
+    endpoint: ${env:GC_OTLP_URL}
 
   debug:
     verbosity: detailed

@@ -1,22 +1,36 @@
-// Memcached Monitoring with Grafana Alloy
-// This configuration scrapes Memcached metrics using the built-in prometheus.exporter.memcached component
-// and remote writes them to Prometheus.
+// Memcached metrics → Grafana Cloud
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-prometheus.exporter.memcached "default" {
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.memcached "integrations_memcached" {
 	address = "memcached:11211"
 }
 
-prometheus.scrape "memcached" {
-	targets    = prometheus.exporter.memcached.default.targets
-	forward_to = [prometheus.remote_write.default.receiver]
+discovery.relabel "integrations_memcached" {
+	targets = prometheus.exporter.memcached.integrations_memcached.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/memcached"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "memcached-monitoring"
+	}
 }
 
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_memcached" {
+	targets         = discovery.relabel.integrations_memcached.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

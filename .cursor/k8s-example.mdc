@@ -1,22 +1,24 @@
 ---
-description: 
-globs: 
+description: creating a new alloy kubernetes example for Grafana Cloud
+globs:
 alwaysApply: false
 ---
-# Grafana Alloy Kubernetes Example Template
+# Grafana Alloy Kubernetes Example (Grafana Cloud)
 
-This template provides a comprehensive structure for creating a new Grafana Alloy example using Kubernetes. It is based on the Kubernetes Monitoring Helm chart which abstracts the need to configure Loki and deploys with best practices for monitoring Kubernetes clusters.
+Prefer **Instrumentation Hub** (Linux Kubernetes) for POVs. Open `$GC_GRAFANA_URL` → Instrumentation Hub, then Kubernetes Monitoring at `$GC_GRAFANA_URL/a/grafana-k8s-app/configuration`. Confirm the collector in Fleet Management.
+
+Helm in this repo is GitOps fallback only. See [`k8s/README.md`](../k8s/README.md) and [`_cloud/curated-paths.md`](../_cloud/curated-paths.md). Do **not** install in-cluster Loki, Prometheus, Tempo, Grafana, or Pyroscope.
+
+Auth from a Secret created from repo-root `.env`. Windows hosts are not covered by Instrumentation Hub — native Alloy + Fleet Management.
 
 ## Directory Structure
 
 ```
 your-k8s-example-name/
-├── k8s-monitoring-values.yml   # K8s monitoring helm chart values
-├── loki-values.yml             # Loki helm chart values
-├── grafana-values.yml          # Grafana helm chart values
-├── kind.yml                    # Kind cluster configuration (optional)
-├── README.md                   # Documentation for your example
-└── [additional files...]       # Any additional files needed for your example
+├── k8s-monitoring-values.yml   # destinations → Grafana Cloud (urlFrom sys.env)
+├── kind.yml                    # optional local Kind
+├── README.md                   # lead with Instrumentation Hub; Helm is fallback
+└── [additional files...]
 ```
 
 ## Kubernetes Configuration Files
@@ -45,9 +47,13 @@ cluster:
   name: example-monitoring
 
 destinations:
-  - name: loki
-    type: loki
-    url: http://loki-gateway.meta.svc.cluster.local/loki/api/v1/push
+  prometheus:
+    type: prometheus
+    urlFrom: sys.env("GC_PROM_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PROM_USER")
+      passwordFrom: sys.env("GC_TOKEN")
 
 # Cluster Events Collection
 clusterEvents:

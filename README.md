@@ -2,34 +2,57 @@
   <img src="./img/banner.png" alt="Grafana Alloy Scenarios Banner" width="300"/>
 </p>
 
-# Grafana Alloy scenarios
+# Grafana Alloy scenarios for Grafana Cloud
 
-This repository provides self-contained, runnable scenarios that show how to use [Grafana Alloy](https://grafana.com/docs/alloy/) for telemetry collection and processing.
-Most scenarios include Docker Compose files for Alloy and the backends that demo needs, such as Loki, Grafana, Prometheus, and Tempo.
-Each scenario also includes pre-configured dashboards when Grafana is part of the stack.
+This fork of [alloy-scenarios](https://github.com/grafana/alloy-scenarios) is optimized for **Grafana Cloud** POVs: Alloy (or Instrumentation Hub / Fleet Management) collects telemetry; Grafana Cloud stores and visualizes it. There is no local Loki, Prometheus, Tempo, or Grafana.
+
+Read [`AGENTS.md`](AGENTS.md) and [`_cloud/README.md`](_cloud/README.md) for credentials, the shared destinations module, and the agent + gcx verify loop. Productized paths (k8s, CPO, DBs) are in [`_cloud/curated-paths.md`](_cloud/curated-paths.md).
+
+## POV open (use these, not Alloy labs)
+
+| Ask | Open |
+| --- | ---- |
+| Kubernetes | Instrumentation Hub, then `$GC_GRAFANA_URL/a/grafana-k8s-app/configuration` — see [`k8s/`](k8s/) |
+| AWS / Azure / GCP | **Observability → Cloud provider** — see [`cloudwatch-metrics/`](cloudwatch-metrics/), [`aws-firehose-logs/`](aws-firehose-logs/), [`azure-event-hubs-logs/`](azure-event-hubs-logs/) (stubs) |
+| PostgreSQL, MySQL, Redis, … | `$GC_GRAFANA_URL/connections/add-new-connection` — Compose labs below only if you need a fake database |
+
+Converted Cloud-ready scenarios so far: Docker scenarios send to Grafana Cloud via `_cloud/destinations.alloy`. Kubernetes, CPO, and database **product** demos start in the stack UI, not Compose.
 
 ## Before you begin
 
-Ensure you have the following:
-
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
-- Git, to clone the repository.
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- Git
+- Grafana Cloud stack credentials in `.env` (copy `.env.sample`)
 
 ## Run a scenario
 
-Navigate to the scenario directory and open the README file.
-The scenario README documents everything you need to know to deploy and explore the scenario.
+Copy `.env.sample` to `.env` and fill in Cloud URLs, instance IDs, and an access-policy token.
 
-From the repository root, you can start Docker-based scenarios with pinned image versions: `./run-example.sh <scenario-dir>`.
-Image versions are in `image-versions.env`.
+Docker Compose runs in **Linux or WSL**. Native Windows does not run Docker in this workflow.
 
-Kubernetes scenarios use Helm charts.
+**WSL / Linux**
+
+```bash
+cp .env.sample .env
+./run-example.sh postgres-monitoring
+```
+
+**Windows PowerShell** (forwards to WSL)
+
+```powershell
+Copy-Item .env.sample .env
+.\run-example.ps1 postgres-monitoring
+```
+
+Syntax-only Alloy check (no database, no Cloud token): `./validate-alloy.sh` or `.\validate-alloy.ps1`.
+
+Image versions are in `image-versions.env`. Kubernetes: prefer [Instrumentation Hub](https://grafana.com/docs/grafana-cloud/learn-and-build/get-started/set-up-your-account/inst-hub-setup/) (Linux clusters); Helm values under `k8s/` are the GitOps fallback.
 
 ## Explore the services
 
-Most Docker-based scenarios expose Grafana at http://localhost:3000 and the Alloy UI at http://localhost:12345.
-You don't need to log in to Grafana in these scenarios.
-Refer to the scenario README for additional endpoints.
+- **Alloy UI** at http://localhost:12345
+- **Grafana Cloud** at `GC_GRAFANA_URL` (Explore, integrations, Kubernetes Monitoring, Fleet Management)
+- Verify with `gcx metrics query` / `gcx logs query` — see [`_cloud/pov-index.yaml`](_cloud/pov-index.yaml)
 
 ## Scenarios
 
@@ -42,8 +65,8 @@ These scenarios focus on log collection, log parsing, log routing, and log redac
 
 | Scenario | Description |
 | -------- | ----------- |
-| [Amazon Data Firehose logs](aws-firehose-logs/) | Ingest Amazon Data Firehose deliveries with `loki.source.awsfirehose`. Uses a local sender. No AWS account required. |
-| [Azure Event Hubs logs](azure-event-hubs-logs/) | Ingest Azure Event Hubs messages with `loki.source.azure_event_hubs`. Uses a self-hosted broker speaking the same wire protocol. No Azure subscription required. |
+| [Amazon Data Firehose logs](aws-firehose-logs/) | **CPO stub.** POV: Observability → Cloud provider → AWS → Logs with Firehose. Alloy receiver lab is optional. |
+| [Azure Event Hubs logs](azure-event-hubs-logs/) | **CPO stub.** POV: Observability → Cloud provider → Azure. Alloy Event Hubs consumer is a logs fallback, not Azure metrics. |
 | [GELF log ingestion](gelf-log-ingestion/) | Ingest Graylog Extended Log Format logs over `UDP`. |
 | [Kafka logs](kafka/) | Consume and process logs from Apache Kafka topics. |
 | [Log API gateway](log-api-gateway/) | Use Alloy as a centralized log gateway that accepts logs via a Loki-compatible push API endpoint. |
@@ -83,6 +106,7 @@ These scenarios collect and forward metrics with Alloy.
 
 | Scenario | Description |
 | -------- | ----------- |
+| [Alloy pipeline patterns](alloy-pipeline-patterns/) | Cookbook: create labels, `prometheus.relabel` keep/drop/labeldrop/replace, and `loki.process` parse/drop/static_labels/structured metadata. Collector-side shaping, not Adaptive Telemetry. |
 | [Alloy clustering](alloy-clustering/) | Run a three-node Alloy cluster that consistent-hashes `prometheus.scrape` targets across nodes. Stop a node and its targets redistribute to the survivors within seconds. |
 | [Blackbox probing](blackbox-probing/) | Monitor endpoint availability and response times with synthetic HTTP probes. |
 | [Prometheus Operator Probes](k8s/prometheus-operator-probes/) | Scrape Prometheus Operator `Probe` resources with Alloy as the blackbox prober (`/probe` path). |
@@ -123,9 +147,11 @@ These scenarios pull telemetry from cloud provider APIs.
 
 | Scenario | Description |
 | -------- | ----------- |
-| [Amazon CloudWatch metrics](cloudwatch-metrics/) | Pull metrics from Amazon CloudWatch into Prometheus with `prometheus.exporter.cloudwatch`. Uses LocalStack for offline reproducibility. No AWS account required. |
+| [Amazon CloudWatch metrics](cloudwatch-metrics/) | **CPO stub.** POV: Observability → Cloud provider → AWS (scrape or metric streams). LocalStack/YACE lab is optional. |
 
 ### Infrastructure monitoring
+
+POV for Linux / Windows / Docker / NGINX: `$GC_GRAFANA_URL/connections/add-new-connection`. Labs below match Cloud integration `job` labels.
 
 These scenarios monitor hosts, containers, and network devices.
 
@@ -137,8 +163,11 @@ These scenarios monitor hosts, containers, and network devices.
 | [NGINX monitoring](nginx-monitoring/) | Monitor NGINX access and error logs plus `stub_status` metrics with Alloy. |
 | [Self-monitoring](self-monitoring/) | Configure Alloy to monitor itself and collect its own metrics and logs. |
 | [SNMP monitoring](snmp/) | Monitor devices with the Alloy SNMP exporter for Simple Network Management Protocol. |
+| [vCenter / vSphere](vcenter-monitoring/) | Collect vCenter metrics with `otelcol.receiver.vcenter` (`job=integrations/vsphere`) and optional VCSA syslog. Requires a real vCenter; no simulator. |
 
 ### Database and cache monitoring
+
+POV: `$GC_GRAFANA_URL/connections/add-new-connection` (Cloud Integrations). Directories below are optional synthetic workloads with matching `job=integrations/...` labels.
 
 These scenarios monitor databases and in-memory caches.
 
@@ -155,11 +184,13 @@ These scenarios monitor databases and in-memory caches.
 
 ### Kubernetes
 
+**POV:** Instrumentation Hub + Kubernetes Monitoring (`$GC_GRAFANA_URL/a/grafana-k8s-app/configuration`). See [`k8s/README.md`](k8s/). Helm under `k8s/cloud-full` is GitOps fallback only.
+
 The `k8s/` directory groups Helm-based and manifest-based examples for Alloy on Kubernetes.
 
 | Scenario | Description |
 | -------- | ----------- |
-| [Kubernetes](k8s/) | Scenarios for Alloy on Kubernetes with the k8s-monitoring Helm chart or plain manifests. See subdirectories for logs, metrics, profiling, tracing, cluster events, and standalone kube-state-metrics + cAdvisor scraping. |
+| [Kubernetes](k8s/) | Cloud-first stub: Instrumentation Hub, then GitOps Helm values that remote-write to Grafana Cloud. |
 
 ### Experimental OTel engine examples
 

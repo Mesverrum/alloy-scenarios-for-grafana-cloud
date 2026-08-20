@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.profiles "default" {}
 livedebugging {
 	enabled = true
 }
@@ -27,12 +32,7 @@ discovery.relabel "containers" {
 // process it can see (because the container shares the host PID namespace).
 pyroscope.ebpf "default" {
 	targets    = discovery.relabel.containers.output
-	forward_to = [pyroscope.write.default.receiver]
+	forward_to = [grafana_cloud.profiles.default.receiver]
 }
 
 // Push the collected profiles to the local Pyroscope server.
-pyroscope.write "default" {
-	endpoint {
-		url = "http://pyroscope:4040"
-	}
-}

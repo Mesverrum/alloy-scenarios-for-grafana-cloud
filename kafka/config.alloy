@@ -1,5 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
-
+grafana_cloud.logs "default" {}
 livedebugging {
   enabled = true
 }
@@ -18,7 +21,7 @@ loki.source.kafka "kafka" {
 }
 
 loki.process "log_data" {
-  forward_to = [loki.write.local.receiver]
+  forward_to = [grafana_cloud.logs.default.receiver]
 
 
   stage.json {
@@ -52,9 +55,4 @@ loki.process "log_data" {
   
 }
 
-loki.write "local" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
-}
 

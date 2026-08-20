@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) — do not install in-cluster Loki or Grafana. Values already push to Grafana Cloud. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`.
+
 # Monitor Kubernetes logs with Grafana Alloy and Loki
 
 This scenario shows how to collect Pod logs and Kubernetes cluster events with the [Kubernetes Monitoring Helm chart][k8s-monitoring] and forward them to Loki.

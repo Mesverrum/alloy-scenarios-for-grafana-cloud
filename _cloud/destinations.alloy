@@ -1,0 +1,91 @@
+// Grafana Cloud destinations module.
+//
+// Import from a scenario config.alloy:
+//
+//   import.file "grafana_cloud" {
+//     filename = sys.env("GC_DESTINATIONS_FILE")
+//   }
+//
+// Instantiate only the signals this scenario uses:
+//
+//   grafana_cloud.metrics "default" {}
+//   grafana_cloud.logs    "default" {}
+//   grafana_cloud.otlp    "default" {}
+//   grafana_cloud.profiles "default" {}
+//
+// Then forward to:
+//   grafana_cloud.metrics.default.receiver
+//   grafana_cloud.logs.default.receiver
+//   grafana_cloud.otlp.default.input
+//   grafana_cloud.profiles.default.receiver
+//
+// Credentials come from process environment (see .env.sample).
+
+declare "metrics" {
+	prometheus.remote_write "grafana_cloud" {
+		endpoint {
+			url = sys.env("GC_PROM_URL")
+
+			basic_auth {
+				username = sys.env("GC_PROM_USER")
+				password = sys.env("GC_TOKEN")
+			}
+		}
+	}
+
+	export "receiver" {
+		value = prometheus.remote_write.grafana_cloud.receiver
+	}
+}
+
+declare "logs" {
+	loki.write "grafana_cloud" {
+		endpoint {
+			url = sys.env("GC_LOKI_URL")
+
+			basic_auth {
+				username = sys.env("GC_LOKI_USER")
+				password = sys.env("GC_TOKEN")
+			}
+		}
+	}
+
+	export "receiver" {
+		value = loki.write.grafana_cloud.receiver
+	}
+}
+
+declare "otlp" {
+	otelcol.auth.basic "grafana_cloud" {
+		username = sys.env("GC_OTLP_USER")
+		password = sys.env("GC_TOKEN")
+	}
+
+	otelcol.exporter.otlphttp "grafana_cloud" {
+		client {
+			endpoint = sys.env("GC_OTLP_URL")
+			auth     = otelcol.auth.basic.grafana_cloud.handler
+		}
+	}
+
+	export "input" {
+		value = otelcol.exporter.otlphttp.grafana_cloud.input
+	}
+}
+
+declare "profiles" {
+	pyroscope.write "grafana_cloud" {
+		endpoint {
+			url = sys.env("GC_PYRO_URL")
+
+			basic_auth {
+				username = sys.env("GC_PYRO_USER")
+				password = sys.env("GC_TOKEN")
+			}
+		}
+	}
+
+	export "receiver" {
+		value = pyroscope.write.grafana_cloud.receiver
+	}
+}

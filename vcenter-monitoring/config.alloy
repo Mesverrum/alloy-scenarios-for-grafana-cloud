@@ -1,0 +1,186 @@
+// VMware vSphere → Grafana Cloud
+//
+// Matches the Cloud vSphere integration (job=integrations/vsphere).
+// otelcol.receiver.vcenter is experimental — Compose passes
+// --stability.level=experimental. Do not use prometheus.exporter.vsphere
+// (deprecated).
+//
+// Credentials: VCENTER_ENDPOINT, VCENTER_USERNAME, VCENTER_PASSWORD from .env.
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+livedebugging {
+	enabled = true
+}
+
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs    "default" {}
+
+otelcol.receiver.vcenter "integrations_vsphere" {
+	endpoint = sys.env("VCENTER_ENDPOINT")
+	username = sys.env("VCENTER_USERNAME")
+	password = sys.env("VCENTER_PASSWORD")
+
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	collection_interval = "1m"
+
+	// Lab vCenter is almost always HTTPS with a self-signed cert.
+	// insecure = true disables TLS entirely (only for http://).
+	tls {
+		insecure_skip_verify = true
+	}
+
+	// Cardinality: VM-level series scale with every VM × disk × NIC.
+	// To cut DPM, disable vcenter.vm.* here or drop them in prometheus.relabel.
+	// metrics {
+	//   vcenter.vm.cpu.usage { enabled = false }
+	// }
+
+	output {
+		metrics = [otelcol.processor.batch.integrations_vsphere.input]
+	}
+}
+
+otelcol.processor.batch "integrations_vsphere" {
+	output {
+		metrics = [otelcol.processor.transform.integrations_vsphere.input]
+	}
+}
+
+otelcol.processor.transform "integrations_vsphere" {
+	error_mode = "ignore"
+
+	metric_statements {
+		context = "resource"
+		statements = [
+			"set(attributes[\"job\"], \"integrations/vsphere\") where attributes[\"job\"] == nil",
+		]
+	}
+
+	output {
+		metrics = [otelcol.exporter.prometheus.integrations_vsphere.input]
+	}
+}
+
+otelcol.exporter.prometheus "integrations_vsphere" {
+	forward_to                       = [grafana_cloud.metrics.default.receiver]
+	resource_to_telemetry_conversion = true
+}
+
+// Optional: vCenter remote syslog → Cloud Logs dashboard (vpxd, applmgmt, analytics).
+// Point vCenter forwarding at this Alloy host, TCP or UDP 1514.
+loki.source.syslog "integrations_vsphere" {
+	forward_to = [loki.process.integrations_vsphere_drop.receiver]
+
+	listener {
+		address             = "0.0.0.0:1514"
+		protocol            = "tcp"
+		use_rfc5424_message = true
+		labels = {
+			job = "integrations/vsphere",
+		}
+	}
+
+	listener {
+		address             = "0.0.0.0:1514"
+		protocol            = "udp"
+		use_rfc5424_message = true
+		labels = {
+			job = "integrations/vsphere",
+		}
+	}
+}
+
+loki.process "integrations_vsphere_drop" {
+	forward_to = [loki.process.integrations_vsphere_labels.receiver]
+
+	stage.regex {
+		expression = `^<\S+>\S* \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z (?<instance>\S+) (?<log_type>\S+) .*$`
+	}
+
+	stage.labels {
+		values = {
+			log_type = "",
+			instance = "",
+		}
+	}
+
+	stage.match {
+		selector            = `{log_type=~".+", log_type!="vpxd-main", log_type!="vpxd-svcs-main", log_type!="analytics", log_type!="applmgmt"}`
+		action              = "drop"
+		drop_counter_reason = "vsphere_non_priority_logs"
+	}
+}
+
+loki.process "integrations_vsphere_labels" {
+	forward_to = [grafana_cloud.logs.default.receiver]
+
+	stage.match {
+		selector = `{log_type="vpxd-main"}`
+
+		stage.regex {
+			expression = `^.*vpxd-main \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z (?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="vpxd-svcs-main"}`
+
+		stage.regex {
+			expression = `^.*vpxd-svcs-main \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z \[\S+ \[\S*\] (?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="applmgmt"}`
+
+		stage.regex {
+			expression = `^.+applmgmt \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+ \S+ \S+ \[\S+\](?<level>\w+):.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.match {
+		selector = `{log_type="analytics"}`
+
+		stage.regex {
+			expression = `^.*analytics \S+ \S+ \S+ \d+-\d+-\d+T\d+:\d+:\d+\.\d+Z \S+\s+(?<level>\w+)\s+.*$`
+		}
+
+		stage.labels {
+			values = {
+				level = "",
+			}
+		}
+	}
+
+	stage.template {
+		source   = "level"
+		template = "{{ ToLower .Value }}"
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+}

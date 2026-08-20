@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) — do not install in-cluster Pyroscope or Grafana. Values already push to Grafana Cloud Profiles. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`.
+
 # Monitor Kubernetes profiles with Grafana Alloy and Pyroscope
 
 This scenario shows how to collect continuous profiles from annotated Pods with the [Kubernetes Monitoring Helm chart][k8s-monitoring] and forward them to Pyroscope.

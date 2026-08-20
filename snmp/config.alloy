@@ -1,45 +1,44 @@
-// --- Remote Write to Prometheus ---
-prometheus.remote_write "remote" {
-  endpoint {
-    url = "http://prometheus:9090/api/v1/write"
-  }
+// SNMP if_mib walk of the local snmpd demo → Grafana Cloud
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
 }
 
-// --- SNMP Exporter Configuration ---
-prometheus.exporter.snmp "snmp_exporter" {
-    // Path must match where docker-compose mounts snmp.yml in the Alloy container.
-    config_file = "/etc/alloy/snmp.yml"
-
-    target "snmpd" {
-        address     = "snmpd"        // the snmpd service on the compose network
-        module      = "if_mib"       // module defined in snmp.yml
-        auth        = "public_v2"    // auth profile defined in snmp.yml
-        walk_params = "default"      // walk_param block defined below
-        labels = {
-            "device" = "snmpd",
-        }
-    }
-
-    walk_param "default" {
-        retries = "2"
-        timeout = "30s"
-    }
-}
-
-// --- SNMP Scrape Configuration ---
-discovery.relabel "snmp_targets" {
-  targets = prometheus.exporter.snmp.snmp_exporter.targets
-  rule {
-    target_label = "job"
-    replacement  = "snmp"
-  }
-}
-
-prometheus.scrape "snmp_targets" {
-  scrape_interval = "30s"
-  targets         = discovery.relabel.snmp_targets.output
-  forward_to      = [prometheus.remote_write.remote.receiver]
-}
-
-// --- Enable Live Debugging ---
 livedebugging {}
+
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.snmp "integrations_snmp" {
+	config_file = "/etc/alloy/snmp.yml"
+
+	target "snmpd" {
+		address     = "snmpd"
+		module      = "if_mib"
+		auth        = "public_v2"
+		walk_params = "default"
+		labels = {
+			device = "snmpd",
+		}
+	}
+
+	walk_param "default" {
+		retries = "2"
+		timeout = "30s"
+	}
+}
+
+discovery.relabel "integrations_snmp" {
+	targets = prometheus.exporter.snmp.integrations_snmp.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/snmp"
+	}
+}
+
+prometheus.scrape "integrations_snmp" {
+	targets    = discovery.relabel.integrations_snmp.output
+	forward_to = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
+}

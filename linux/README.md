@@ -1,5 +1,9 @@
 # Monitor a Linux host
 
+**POV path:** `$GC_GRAFANA_URL/connections/add-new-connection` → search **Linux Node**. That installs the Cloud Linux integration (`job=integrations/node_exporter`).
+
+This directory is a Compose lab with the same job label. Visualization is Grafana Cloud, not localhost Grafana.
+
 This scenario shows how to collect system metrics and logs from a Linux host with Grafana Alloy.
 Alloy uses the `prometheus.exporter.unix` component to collect CPU, memory, disk, and network metrics.
 It also collects logs from the systemd journal and from common log files under `/var/log`.

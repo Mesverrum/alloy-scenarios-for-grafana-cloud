@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 // AWS Kinesis Data Firehose → Loki, no AWS account required.
 //
 // `loki.source.awsfirehose` is just an HTTP endpoint that accepts
@@ -37,11 +42,6 @@ loki.source.awsfirehose "fake" {
 		listen_port    = 9999
 	}
 	relabel_rules = loki.relabel.firehose.rules
-	forward_to    = [loki.write.local.receiver]
+	forward_to    = [grafana_cloud.logs.default.receiver]
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}

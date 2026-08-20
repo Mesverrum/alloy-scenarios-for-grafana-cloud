@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 livedebugging {
 	enabled = true
 }
@@ -18,7 +23,7 @@ otelcol.processor.batch "default" {
 	output {
 		traces = [
 			otelcol.connector.spanmetrics.default.input,
-			otelcol.exporter.otlp.tempo.input,
+			grafana_cloud.otlp.default.input,
 		]
 	}
 }
@@ -40,28 +45,10 @@ otelcol.connector.spanmetrics "default" {
 	metrics_flush_interval = "5s"
 
 	output {
-		metrics = [otelcol.exporter.otlphttp.prometheus.input]
+		metrics = [grafana_cloud.otlp.default.input]
 	}
 }
 
 // Send RED metrics to Prometheus
-otelcol.exporter.otlphttp "prometheus" {
-	client {
-		endpoint = "http://prometheus:9090/api/v1/otlp"
-
-		tls {
-			insecure = true
-		}
-	}
-}
 
 // Send traces to Tempo
-otelcol.exporter.otlp "tempo" {
-	client {
-		endpoint = "tempo:4317"
-
-		tls {
-			insecure = true
-		}
-	}
-}

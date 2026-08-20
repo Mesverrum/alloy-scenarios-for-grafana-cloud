@@ -1,0 +1,202 @@
+// Alloy pipeline cookbook: labels, relabel, keep/drop filters.
+//
+// This is collector-side shaping (you decide the rules). It is not Adaptive
+// Telemetry — Adaptive applies usage-based rules in Grafana Cloud after ingest.
+//
+// Inspect every stage in the Alloy UI (http://localhost:12345) with live debugging.
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs    "default" {}
+
+livedebugging {
+	enabled = true
+}
+
+// ---------------------------------------------------------------------------
+// Metrics: discovery.relabel → scrape → prometheus.relabel → Cloud
+// ---------------------------------------------------------------------------
+
+// Attach stable target labels before scrape. These become series labels.
+discovery.relabel "generator" {
+	targets = [{
+		__address__ = "generator:8080",
+	}]
+
+	rule {
+		target_label = "job"
+		replacement  = "alloy_pipeline_patterns"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "generator"
+	}
+
+	rule {
+		target_label = "env"
+		replacement  = "lab"
+	}
+}
+
+prometheus.scrape "generator" {
+	targets         = discovery.relabel.generator.output
+	forward_to      = [prometheus.relabel.shaped.receiver]
+	scrape_interval = "1m"
+}
+
+// Common prometheus.relabel actions, in order:
+//   keep / drop  — filter whole series by name or label
+//   labeldrop    — delete high-cardinality labels
+//   replace      — create or rewrite a label (normalize routes, rename)
+//   static label — target_label + replacement with no source_labels
+prometheus.relabel "shaped" {
+	forward_to = [grafana_cloud.metrics.default.receiver]
+
+	// Keep only the series this demo cares about (drop noisy_debug_total).
+	rule {
+		source_labels = ["__name__"]
+		regex         = "http_requests_total|app_up"
+		action        = "keep"
+	}
+
+	// request_id and user_id explode cardinality. Drop them at the collector
+	// so they never consume Cloud DPM or egress.
+	rule {
+		regex  = "request_id|user_id"
+		action = "labeldrop"
+	}
+
+	// /api/orders/1001 → /api/orders/:id  (same idea as metric-cardinality-control)
+	rule {
+		source_labels = ["route"]
+		regex         = "(/api/(?:orders|users))/[0-9]+"
+		target_label  = "route"
+		replacement   = "$1/:id"
+		action        = "replace"
+	}
+
+	// Rename method → http_method, then drop the original.
+	rule {
+		source_labels = ["method"]
+		target_label  = "http_method"
+		action        = "replace"
+	}
+
+	rule {
+		regex  = "method"
+		action = "labeldrop"
+	}
+
+	// Brand the output so Explore can distinguish this lab.
+	rule {
+		target_label = "pipeline"
+		replacement  = "alloy_relabel"
+	}
+
+	rule {
+		target_label = "team"
+		replacement  = "platform"
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Logs: file tail → loki.process → Cloud
+// ---------------------------------------------------------------------------
+
+local.file_match "app" {
+	path_targets = [{
+		__path__ = "/logs/app.log",
+		job      = "alloy_pipeline_patterns",
+	}]
+	sync_period = "5s"
+}
+
+loki.source.file "app" {
+	targets       = local.file_match.app.targets
+	forward_to    = [loki.process.shaped.receiver]
+	tail_from_end = true
+}
+
+// Common loki.process stages:
+//   json / regex     — parse the line
+//   drop             — filter (health checks, debug)
+//   static_labels    — attach labels you invent
+//   labels           — promote parsed fields to the index (keep cardinality low)
+//   structured_metadata — high-cardinality IDs that should not be labels
+//   replace          — rewrite a field
+//   match            — extra stages only for a subset of streams
+loki.process "shaped" {
+	forward_to = [grafana_cloud.logs.default.receiver]
+
+	stage.json {
+		expressions = {
+			level      = "level",
+			method     = "method",
+			path       = "path",
+			status     = "status",
+			request_id = "request_id",
+			msg        = "msg",
+			service    = "service",
+		}
+	}
+
+	// Drop probe noise before it is billed as log GB.
+	stage.drop {
+		source     = "path"
+		expression = "^/(health|ready)$"
+	}
+
+	stage.drop {
+		source     = "level"
+		expression = "debug"
+	}
+
+	stage.replace {
+		expression = "(/api/(?:orders|users))/[0-9]+"
+		source     = "path"
+		replace    = "$1/:id"
+	}
+
+	stage.static_labels {
+		values = {
+			env      = "lab",
+			pipeline = "alloy_process",
+			team     = "platform",
+		}
+	}
+
+	stage.labels {
+		values = {
+			level   = "",
+			method  = "",
+			status  = "",
+			service = "",
+		}
+	}
+
+	// request_id is unique per line — structured metadata, not a label.
+	stage.structured_metadata {
+		values = {
+			request_id = "",
+			path       = "",
+		}
+	}
+
+	stage.match {
+		selector = "{level=\"error\"}"
+
+		stage.static_labels {
+			values = {
+				alert_worthy = "true",
+			}
+		}
+	}
+
+	stage.output {
+		source = "msg"
+	}
+}

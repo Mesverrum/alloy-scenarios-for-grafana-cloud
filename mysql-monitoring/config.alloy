@@ -1,28 +1,37 @@
-// ###############################
-// #### Metrics Configuration ####
-// ###############################
+// MySQL metrics → Grafana Cloud
+// job label matches the Cloud MySQL integration dashboard.
 
-// Enable live debugging for the Alloy UI.
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
 livedebugging {
 	enabled = true
 }
 
-// Expose MySQL metrics using the prometheus.exporter.mysql component.
-prometheus.exporter.mysql "default" {
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.mysql "integrations_mysqld_exporter" {
 	data_source_name = "root:alloy@(mysql:3306)/"
 }
 
-// Configure a prometheus.scrape component to collect MySQL metrics.
-prometheus.scrape "mysql" {
-	targets    = prometheus.exporter.mysql.default.targets
-	forward_to = [prometheus.remote_write.default.receiver]
+discovery.relabel "integrations_mysqld_exporter" {
+	targets = prometheus.exporter.mysql.integrations_mysqld_exporter.targets
 
-	scrape_interval = "15s"
+	rule {
+		target_label = "job"
+		replacement  = "integrations/mysqld_exporter"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "mysql-monitoring"
+	}
 }
 
-// Configure a prometheus.remote_write component to send metrics to Prometheus.
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_mysqld_exporter" {
+	targets         = discovery.relabel.integrations_mysqld_exporter.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

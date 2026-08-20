@@ -1,0 +1,107 @@
+---
+cluster:
+  name: alloy-scenarios-cloud
+
+destinations:
+  prometheus:
+    type: prometheus
+    urlFrom: sys.env("GC_PROM_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PROM_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+
+  loki:
+    type: loki
+    urlFrom: sys.env("GC_LOKI_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_LOKI_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+
+  tempo:
+    type: otlp
+    urlFrom: sys.env("GC_OTLP_URL")
+    protocol: http
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_OTLP_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+    metrics:
+      enabled: false
+    logs:
+      enabled: false
+    traces:
+      enabled: true
+
+  pyroscope:
+    type: pyroscope
+    urlFrom: sys.env("GC_PYRO_URL")
+    auth:
+      type: basic
+      usernameFrom: sys.env("GC_PYRO_USER")
+      passwordFrom: sys.env("GC_TOKEN")
+
+clusterMetrics:
+  enabled: true
+
+annotationAutodiscovery:
+  enabled: true
+  collector: alloy-metrics
+
+clusterEvents:
+  enabled: true
+  collector: alloy-singleton
+
+podLogsViaKubernetesApi:
+  enabled: true
+  collector: alloy-logs
+  structuredMetadata:
+    pod: pod
+
+applicationObservability:
+  enabled: true
+  collector: alloy-receiver
+  receivers:
+    otlp:
+      grpc:
+        enabled: true
+      http:
+        enabled: true
+
+profiling:
+  enabled: true
+  collector: alloy-profiles
+  pprof:
+    enabled: true
+
+collectors:
+  alloy-metrics:
+    presets: [clustered, statefulset]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
+  alloy-logs:
+    presets: [clustered]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
+  alloy-singleton:
+    presets: [singleton]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
+  alloy-receiver:
+    presets: [deployment]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
+  alloy-profiles:
+    presets: [privileged, daemonset]
+    extraEnvFrom:
+      - secretRef:
+          name: grafana-cloud
+
+telemetryServices:
+  kube-state-metrics:
+    deploy: true

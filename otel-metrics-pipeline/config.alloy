@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 livedebugging {
 	enabled = true
 }
@@ -32,17 +37,8 @@ otelcol.processor.transform "default" {
 	}
 
 	output {
-		metrics = [otelcol.exporter.otlphttp.prometheus.input]
+		metrics = [grafana_cloud.otlp.default.input]
 	}
 }
 
 // Export metrics to Prometheus via OTLP
-otelcol.exporter.otlphttp "prometheus" {
-	client {
-		endpoint = "http://prometheus:9090/api/v1/otlp"
-
-		tls {
-			insecure = true
-		}
-	}
-}

@@ -1,3 +1,9 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.metrics "default" {}
+grafana_cloud.logs "default" {}
 // This block relabels metrics coming from node_exporter to add standard labels
 discovery.relabel "integrations_node_exporter" {
   targets = prometheus.exporter.unix.integrations_node_exporter.targets
@@ -45,21 +51,15 @@ prometheus.exporter.unix "integrations_node_exporter" {
 
 // Define how to scrape metrics from the node_exporter
 prometheus.scrape "integrations_node_exporter" {
-scrape_interval = "15s"
+scrape_interval = "1m"
   // Use the targets with labels from the discovery.relabel component
   targets    = discovery.relabel.integrations_node_exporter.output
   // Send the scraped metrics to the relabeling component
-  forward_to = [prometheus.remote_write.local.receiver]
+  forward_to = [grafana_cloud.metrics.default.receiver]
 }
 
 
 // Define where to send the metrics for storage
-prometheus.remote_write "local" {
-  endpoint {
-    // Send metrics to a locally running Prometheus instance
-    url = "http://prometheus:9090/api/v1/write"
-  }
-}
 
 // Collect logs from systemd journal for node_exporter integration
 loki.source.journal "logs_integrations_integrations_node_exporter_journal_scrape" {
@@ -68,7 +68,7 @@ loki.source.journal "logs_integrations_integrations_node_exporter_journal_scrape
   // Apply relabeling rules to the logs
   relabel_rules = discovery.relabel.logs_integrations_integrations_node_exporter_journal_scrape.rules
   // Send logs to the local Loki instance
-  forward_to    = [loki.write.local.receiver]
+  forward_to    = [grafana_cloud.logs.default.receiver]
 }
 
 // Define which log files to collect for node_exporter
@@ -131,16 +131,10 @@ loki.source.file "logs_integrations_integrations_node_exporter_direct_scrape" {
   // Use targets defined in local.file_match
   targets    = local.file_match.logs_integrations_integrations_node_exporter_direct_scrape.targets
   // Send logs to the local Loki instance
-  forward_to = [loki.write.local.receiver]
+  forward_to = [grafana_cloud.logs.default.receiver]
 }
 
 // Define where to send logs for storage
-loki.write "local" {
-    endpoint {
-        // Send logs to a locally running Loki instance
-        url ="http://loki:3100/loki/api/v1/push"
-    }
-}
 
 // Enable live debugging features (empty config means use defaults)
 livedebugging{}

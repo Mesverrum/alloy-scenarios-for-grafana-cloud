@@ -1,5 +1,9 @@
 # Monitor Windows metrics and logs
 
+**POV path:** `$GC_GRAFANA_URL/connections/add-new-connection` → search **Windows**, plus **Fleet Management** for config at scale. Instrumentation Hub does not cover Windows.
+
+Install Alloy as a Windows service, set `GC_DESTINATIONS_FILE` to `_cloud/destinations.alloy`, and use `config.alloy` in this directory (`prometheus.exporter.windows` + event logs). There is no Docker Compose LGTM stack.
+
 This scenario shows how to collect Windows performance metrics and event logs with Grafana Alloy installed natively on a Windows host.
 Alloy remote-writes metrics to Prometheus and pushes processed event log entries to Loki through `config.alloy`.
 You run Grafana, Loki, and Prometheus in Docker on the same machine, then install Alloy as a Windows service and copy the scenario configuration into place.

@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.logs "default" {}
 livedebugging {
 	enabled = true
 }
@@ -12,12 +17,7 @@ faro.receiver "default" {
 	}
 
 	output {
-		logs = [loki.write.local.receiver]
+		logs = [grafana_cloud.logs.default.receiver]
 	}
 }
 
-loki.write "local" {
-	endpoint {
-		url = "http://loki:3100/loki/api/v1/push"
-	}
-}

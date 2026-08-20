@@ -1,0 +1,25 @@
+services:
+  generator:
+    image: python:${PYTHON_VERSION:-3.11-slim}
+    volumes:
+      - ./app/generator.py:/app/generator.py
+      - ./logs:/logs
+    command: python3 /app/generator.py
+    ports:
+      - "8080:8080"
+
+  alloy:
+    image: grafana/alloy:${GRAFANA_ALLOY_VERSION:-v1.17.1}
+    ports:
+      - "12345:12345"
+    env_file:
+      - ../.env
+    environment:
+      GC_DESTINATIONS_FILE: /etc/alloy/cloud/destinations.alloy
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy
+      - ../_cloud/destinations.alloy:/etc/alloy/cloud/destinations.alloy
+      - ./logs:/logs
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - generator

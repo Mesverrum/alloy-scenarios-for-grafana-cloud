@@ -1,3 +1,8 @@
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
+grafana_cloud.otlp "default" {}
 // ###################################################
 // #### OpenTelemetry metrics pipeline (push model) ####
 // ###################################################
@@ -25,18 +30,9 @@ otelcol.receiver.otlp "default" {
 // Batch metrics to reduce the number of export requests.
 otelcol.processor.batch "default" {
   output {
-    metrics = [otelcol.exporter.otlphttp.prometheus.input]
+    metrics = [grafana_cloud.otlp.default.input]
   }
 }
 
 // Export metrics to Prometheus' OTLP receiver. Resource attributes such as
 // service.name and language are promoted to labels in prom-config.yaml.
-otelcol.exporter.otlphttp "prometheus" {
-  client {
-    endpoint = "http://prometheus:9090/api/v1/otlp"
-
-    tls {
-      insecure = true
-    }
-  }
-}

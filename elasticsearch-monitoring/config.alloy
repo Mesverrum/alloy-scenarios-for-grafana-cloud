@@ -1,23 +1,36 @@
-// Elasticsearch Monitoring with Grafana Alloy
-// This configuration scrapes Elasticsearch metrics using the built-in prometheus.exporter.elasticsearch component
-// and remote writes them to Prometheus.
+// Elasticsearch metrics → Grafana Cloud
+
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
 
 livedebugging {
 	enabled = true
 }
 
-prometheus.exporter.elasticsearch "default" {
+grafana_cloud.metrics "default" {}
+
+prometheus.exporter.elasticsearch "integrations_elasticsearch" {
 	address = "http://elasticsearch:9200"
 }
 
-prometheus.scrape "elasticsearch" {
-	targets         = prometheus.exporter.elasticsearch.default.targets
-	forward_to      = [prometheus.remote_write.default.receiver]
-	scrape_interval = "30s"
+discovery.relabel "integrations_elasticsearch" {
+	targets = prometheus.exporter.elasticsearch.integrations_elasticsearch.targets
+
+	rule {
+		target_label = "job"
+		replacement  = "integrations/elasticsearch"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "elasticsearch-monitoring"
+	}
 }
 
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_elasticsearch" {
+	targets         = discovery.relabel.integrations_elasticsearch.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }

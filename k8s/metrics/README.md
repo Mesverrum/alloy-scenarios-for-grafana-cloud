@@ -1,3 +1,5 @@
+> **POV path:** [Instrumentation Hub / Kubernetes Monitoring](../README.md) — do not install in-cluster Prometheus, Loki, Tempo, or Grafana. Values already remote-write to Grafana Cloud. Secret: `kubectl create secret generic grafana-cloud --from-env-file=../../.env -n meta`.
+
 # Monitor Kubernetes metrics with Grafana Alloy and Prometheus
 
 This scenario shows how to collect cluster metrics and scrape annotated Pods with the [Kubernetes Monitoring Helm chart][k8s-monitoring] and forward samples to Prometheus.

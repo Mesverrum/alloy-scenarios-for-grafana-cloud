@@ -1,44 +1,42 @@
-// ###############################
-// #### Metrics Configuration ####
-// ###############################
+// SQL Server metrics → Grafana Cloud
+// job label matches the Cloud MSSQL integration dashboard.
 
-// Enable live debugging for the Alloy UI.
+import.file "grafana_cloud" {
+	filename = sys.env("GC_DESTINATIONS_FILE")
+}
+
 livedebugging {
 	enabled = true
 }
 
-// Read the collector definition for the exporter. The query_config
-// argument REPLACES the exporter's built-in collector rather than
-// extending it, so mssql-queries.yaml embeds the upstream default
-// collector as its base and appends this scenario's custom metrics
-// (database file sizes and the demo table row count) at the end.
+grafana_cloud.metrics "default" {}
+
 local.file "queries" {
 	filename = "/etc/alloy/mssql-queries.yaml"
 }
 
-// Expose SQL Server metrics using the bundled sql_exporter integration.
-//
-// The connection string comes from the container environment because it
-// embeds the SA password. sys.env() returns it as a one-way Alloy secret,
-// so the credential never appears in this file or in the Alloy UI.
-// Production setups would source it from a real secret store instead --
-// see the vault-secrets scenario for remote.vault.
-prometheus.exporter.mssql "default" {
+prometheus.exporter.mssql "integrations_mssql" {
 	connection_string = sys.env("MSSQL_CONNECTION_STRING")
 	query_config      = local.file.queries.content
 }
 
-// Scrape the SQL Server exporter every 15 seconds.
-prometheus.scrape "mssql" {
-	targets    = prometheus.exporter.mssql.default.targets
-	forward_to = [prometheus.remote_write.default.receiver]
+discovery.relabel "integrations_mssql" {
+	targets = prometheus.exporter.mssql.integrations_mssql.targets
 
-	scrape_interval = "15s"
+	rule {
+		target_label = "job"
+		replacement  = "integrations/mssql"
+	}
+
+	rule {
+		target_label = "instance"
+		replacement  = "mssql-monitoring"
+	}
 }
 
-// Send the scraped metrics to the local Prometheus instance via remote write.
-prometheus.remote_write "default" {
-	endpoint {
-		url = "http://prometheus:9090/api/v1/write"
-	}
+prometheus.scrape "integrations_mssql" {
+	targets         = discovery.relabel.integrations_mssql.output
+	forward_to      = [grafana_cloud.metrics.default.receiver]
+	// 1m matches Grafana Cloud's 1 data-point-per-minute billing assumption.
+	scrape_interval = "1m"
 }
