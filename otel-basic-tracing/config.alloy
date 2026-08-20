@@ -12,6 +12,24 @@ otelcol.receiver.otlp "default" {
   grpc {}
 
   output {
+    traces = [otelcol.processor.filter.drop_probes.input]
+  }
+}
+
+// Head filter (per-span). For whole-trace keep/drop, use otel-tail-sampling.
+otelcol.processor.filter "drop_probes" {
+  error_mode = "ignore"
+
+  traces {
+    span = [
+      `attributes["http.target"] == "/health"`,
+      `attributes["http.target"] == "/ready"`,
+      `attributes["http.route"] == "/health"`,
+      `attributes["http.route"] == "/ready"`,
+    ]
+  }
+
+  output {
     traces = [otelcol.processor.batch.default.input]
   }
 }

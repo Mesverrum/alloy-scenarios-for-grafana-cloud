@@ -62,12 +62,13 @@ Ensure you have the following:
 
 ## Understand the Alloy pipeline
 
-The `config.alloy` pipeline has four components:
+The `config.alloy` pipeline has five components:
 
 1. **`otelcol.receiver.otlp.default`**: Receives OTLP metrics over gRPC and HTTP.
-2. **`otelcol.processor.batch.default`**: Batches metrics for efficient export.
-3. **`otelcol.processor.transform.default`**: Sets `deployment.environment = "demo"` on the resource.
-4. **`otelcol.exporter.otlphttp.prometheus`**: Sends metrics to Prometheus at `http://prometheus:9090/api/v1/otlp`.
+2. **`otelcol.processor.filter.drop_noise`**: Drops datapoints whose `endpoint` attribute is `/health`.
+3. **`otelcol.processor.batch.default`**: Batches metrics for efficient export.
+4. **`otelcol.processor.transform.default`**: Sets `deployment.environment = "demo"` on the resource.
+5. **`grafana_cloud.otlp.default`**: Sends metrics to Grafana Cloud.
 
 `livedebugging` is enabled so you can inspect the pipeline in the Alloy UI.
 

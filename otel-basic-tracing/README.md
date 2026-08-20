@@ -30,7 +30,7 @@ Ensure you have the following:
 ```
 
 - **demo-app**: Flask app on port 8080 that creates spans with the OpenTelemetry SDK and exports them to Alloy at `alloy:4317` over gRPC.
-- **Alloy**: Receives OTLP traces, batches them, and forwards them to Tempo.
+- **Alloy**: Receives OTLP traces, drops `/health` and `/ready` probe spans with `otelcol.processor.filter`, batches the rest, and forwards them to Grafana Cloud.
 - **Tempo**: Stores traces and runs the metrics generator with service-graph, span-metrics, and local-blocks processors. Uses Memcached as a query cache.
 - **Prometheus**: Stores the metrics Tempo generates for service graphs and RED metrics.
 - **Grafana**: Explores traces through the provisioned Tempo data source and service graphs through Prometheus.

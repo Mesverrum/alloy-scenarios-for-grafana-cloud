@@ -14,6 +14,12 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  filter/drop_noise:
+    error_mode: ignore
+    metrics:
+      datapoint:
+        - attributes["endpoint"] == "/health"
+
   batch: {}
 
   transform:
@@ -33,5 +39,5 @@ service:
   pipelines:
     metrics:
       receivers: [otlp]
-      processors: [batch, transform]
+      processors: [filter/drop_noise, batch, transform]
       exporters: [otlphttp/prometheus]

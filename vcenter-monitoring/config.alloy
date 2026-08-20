@@ -28,15 +28,36 @@ otelcol.receiver.vcenter "integrations_vsphere" {
 
 	// Lab vCenter is almost always HTTPS with a self-signed cert.
 	// insecure = true disables TLS entirely (only for http://).
+	// skip_verify = HTTPS with a lab cert. insecure = true turns TLS off (http:// only).
+	// Production: ca_file / ca_pem instead of skip_verify.
 	tls {
 		insecure_skip_verify = true
 	}
 
-	// Cardinality: VM-level series scale with every VM × disk × NIC.
-	// To cut DPM, disable vcenter.vm.* here or drop them in prometheus.relabel.
-	// metrics {
-	//   vcenter.vm.cpu.usage { enabled = false }
-	// }
+	// vSAN series are noisy if the cluster has no vSAN. Disable them for POV cost.
+	metrics {
+		vcenter.cluster.vsan.congestions {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.latency.avg {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.operations {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.throughput {
+			enabled = false
+		}
+	}
+
+	resource_attributes {
+		vcenter.vm.id {
+			enabled = false
+		}
+	}
 
 	output {
 		metrics = [otelcol.processor.batch.integrations_vsphere.input]

@@ -76,4 +76,13 @@ loki.process "docker_logs" {
 		source     = "container_name"
 		expression = "(alloy)"
 	}
+
+	stage.match {
+		selector = `{container_name=~".+"}`
+
+		stage.drop {
+			expression          = "(?i)healthz|/health|/ready"
+			drop_counter_reason = "docker_probe_logs"
+		}
+	}
 }

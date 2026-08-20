@@ -14,11 +14,26 @@ otelcol.receiver.otlp "default" {
 	grpc { }
 
 	output {
+		metrics = [otelcol.processor.filter.drop_noise.input]
+	}
+}
+
+// Drop probe datapoints before batch/transform. The demo app labels /health
+// as an endpoint on app.requests.total.
+otelcol.processor.filter "drop_noise" {
+	error_mode = "ignore"
+
+	metrics {
+		datapoint = [
+			`attributes["endpoint"] == "/health"`,
+		]
+	}
+
+	output {
 		metrics = [otelcol.processor.batch.default.input]
 	}
 }
 
-// Batch metrics for efficient export
 otelcol.processor.batch "default" {
 	output {
 		metrics = [otelcol.processor.transform.default.input]

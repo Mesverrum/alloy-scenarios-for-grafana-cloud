@@ -12,6 +12,7 @@ otelcol.receiver.jaeger "default" {
   protocols {
     thrift_http {}
     grpc {}
+    // Also in the receiver docs: thrift_binary {}, thrift_compact {}
   }
 
   output {

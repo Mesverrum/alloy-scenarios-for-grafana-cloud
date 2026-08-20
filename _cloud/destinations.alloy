@@ -56,6 +56,11 @@ declare "logs" {
 }
 
 declare "otlp" {
+	// Grafana Cloud OTLP tile: instance ID + access-policy token as basic auth.
+	// Alternatives from the otelcol.auth docs (pick one; do not stack them):
+	//   otelcol.auth.bearer  { token = sys.env("GC_TOKEN") }
+	//   otelcol.auth.headers { header { key = "Authorization" value = "Bearer ${GC_TOKEN}" } }
+	//   otelcol.auth.oauth2  { client_id / client_secret / token_url } for IdP-issued tokens
 	otelcol.auth.basic "grafana_cloud" {
 		username = sys.env("GC_OTLP_USER")
 		password = sys.env("GC_TOKEN")

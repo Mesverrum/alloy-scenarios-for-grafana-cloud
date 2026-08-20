@@ -24,7 +24,10 @@ livedebugging {}
 loki.source.windowsevent "security" {
 	eventlog_name          = "Security"
 	use_incoming_timestamp = true
-	forward_to             = [loki.process.security.receiver]
+	// Filter at the source (cheaper than dropping after parse). Same IDs as
+	// the match/drop stage below, which stays as a second line of defense.
+	xpath_query = "*[System[(EventID!=4658) and (EventID!=4690) and (EventID!=4674) and (EventID!=5379)]]"
+	forward_to  = [loki.process.security.receiver]
 }
 
 loki.process "security" {

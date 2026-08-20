@@ -20,7 +20,7 @@ Ensure you have the following:
 | ---------- | ---------------------------------- | ---------------------------------------------------------------- |
 | Log source | Files on a shared Docker volume    | TCP client sends JSON log payloads over HTTP                     |
 | Ingestion  | `local.file_match` glob on `*.log` | `loki.source.api` listener on port 9999                          |
-| Processing | Direct tail and forward            | `loki.process` parses JSON and extracts fields                   |
+| Processing | `loki.process`: timestamp, drop DEBUG, `level` label | `loki.process` parses JSON and extracts fields                   |
 | Demo app   | Python script writes to `app.log`  | Simulator sends structured JSON logs over TCP to Alloy port 9999 |
 
 Use this scenario when you need to tail files Alloy can read from disk.

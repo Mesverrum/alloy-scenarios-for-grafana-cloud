@@ -48,29 +48,24 @@ prometheus.scrape "generator" {
 	scrape_interval = "1m"
 }
 
-// Common prometheus.relabel actions, in order:
-//   keep / drop  — filter whole series by name or label
-//   labeldrop    — delete high-cardinality labels
-//   replace      — create or rewrite a label (normalize routes, rename)
-//   static label — target_label + replacement with no source_labels
+// prometheus.relabel actions from the Alloy reference:
+//   keep / drop / keepequal / dropequal
+//   labeldrop / labelkeep / labelmap
+//   replace / lowercase / uppercase / hashmod
 prometheus.relabel "shaped" {
 	forward_to = [grafana_cloud.metrics.default.receiver]
 
-	// Keep only the series this demo cares about (drop noisy_debug_total).
 	rule {
 		source_labels = ["__name__"]
 		regex         = "http_requests_total|app_up"
 		action        = "keep"
 	}
 
-	// request_id and user_id explode cardinality. Drop them at the collector
-	// so they never consume Cloud DPM or egress.
 	rule {
 		regex  = "request_id|user_id"
 		action = "labeldrop"
 	}
 
-	// /api/orders/1001 → /api/orders/:id  (same idea as metric-cardinality-control)
 	rule {
 		source_labels = ["route"]
 		regex         = "(/api/(?:orders|users))/[0-9]+"
@@ -79,7 +74,6 @@ prometheus.relabel "shaped" {
 		action        = "replace"
 	}
 
-	// Rename method → http_method, then drop the original.
 	rule {
 		source_labels = ["method"]
 		target_label  = "http_method"
@@ -91,7 +85,19 @@ prometheus.relabel "shaped" {
 		action = "labeldrop"
 	}
 
-	// Brand the output so Explore can distinguish this lab.
+	rule {
+		source_labels = ["http_method"]
+		target_label  = "http_method"
+		action        = "lowercase"
+	}
+
+	rule {
+		source_labels = ["instance"]
+		target_label  = "shard"
+		modulus       = 4
+		action        = "hashmod"
+	}
+
 	rule {
 		target_label = "pipeline"
 		replacement  = "alloy_relabel"
@@ -100,6 +106,12 @@ prometheus.relabel "shaped" {
 	rule {
 		target_label = "team"
 		replacement  = "platform"
+	}
+
+	// Allowlist remaining labels. Must include __name__ or series become unnamed.
+	rule {
+		regex  = "__name__|job|instance|env|route|http_method|status|pipeline|team|shard"
+		action = "labelkeep"
 	}
 }
 
@@ -121,19 +133,15 @@ loki.source.file "app" {
 	tail_from_end = true
 }
 
-// Common loki.process stages:
-//   json / regex     — parse the line
-//   drop             — filter (health checks, debug)
-//   static_labels    — attach labels you invent
-//   labels           — promote parsed fields to the index (keep cardinality low)
-//   structured_metadata — high-cardinality IDs that should not be labels
-//   replace          — rewrite a field
-//   match            — extra stages only for a subset of streams
+// loki.process stages from the Alloy reference (subset this generator hits):
+//   json, timestamp, drop, replace, sampling, limit, metrics,
+//   static_labels, labels, structured_metadata, match, output
 loki.process "shaped" {
 	forward_to = [grafana_cloud.logs.default.receiver]
 
 	stage.json {
 		expressions = {
+			ts         = "ts",
 			level      = "level",
 			method     = "method",
 			path       = "path",
@@ -144,7 +152,11 @@ loki.process "shaped" {
 		}
 	}
 
-	// Drop probe noise before it is billed as log GB.
+	stage.timestamp {
+		source = "ts"
+		format = "RFC3339"
+	}
+
 	stage.drop {
 		source     = "path"
 		expression = "^/(health|ready)$"
@@ -159,6 +171,32 @@ loki.process "shaped" {
 		expression = "(/api/(?:orders|users))/[0-9]+"
 		source     = "path"
 		replace    = "$1/:id"
+	}
+
+	// Keep all errors; sample 50% of remaining info lines (docs: rate in [0,1]).
+	stage.match {
+		selector = `{level="info"}`
+
+		stage.sampling {
+			rate                = 0.5
+			drop_counter_reason = "info_sampling"
+		}
+	}
+
+	stage.limit {
+		rate  = 20
+		burst = 40
+		drop  = true
+	}
+
+	stage.metrics {
+		metric.counter {
+			name        = "shaped_log_lines_total"
+			description = "log lines after drop/sample/limit"
+			prefix      = "alloy_pipeline_"
+			match_all   = true
+			action      = "inc"
+		}
 	}
 
 	stage.static_labels {
@@ -178,7 +216,6 @@ loki.process "shaped" {
 		}
 	}
 
-	// request_id is unique per line — structured metadata, not a label.
 	stage.structured_metadata {
 		values = {
 			request_id = "",
@@ -187,7 +224,7 @@ loki.process "shaped" {
 	}
 
 	stage.match {
-		selector = "{level=\"error\"}"
+		selector = `{level="error"}`
 
 		stage.static_labels {
 			values = {
@@ -198,5 +235,26 @@ loki.process "shaped" {
 
 	stage.output {
 		source = "msg"
+	}
+}
+
+// stage.metrics exposes counters on Alloy's /metrics. Scrape them separately
+// so prometheus.relabel.shaped's keep-list does not drop them.
+prometheus.scrape "process_metrics" {
+	targets = [{
+		__address__ = "127.0.0.1:12345",
+		job         = "alloy_pipeline_patterns",
+	}]
+	forward_to      = [prometheus.relabel.process_metrics.receiver]
+	scrape_interval = "1m"
+}
+
+prometheus.relabel "process_metrics" {
+	forward_to = [grafana_cloud.metrics.default.receiver]
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "alloy_pipeline_shaped_log_lines_total"
+		action        = "keep"
 	}
 }

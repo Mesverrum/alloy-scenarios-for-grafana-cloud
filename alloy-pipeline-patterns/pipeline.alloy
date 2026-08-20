@@ -42,8 +42,26 @@ prometheus.relabel "shaped" {
 	}
 
 	rule {
+		source_labels = ["http_method"]
+		target_label  = "http_method"
+		action        = "lowercase"
+	}
+
+	rule {
+		source_labels = ["instance"]
+		target_label  = "shard"
+		modulus       = 4
+		action        = "hashmod"
+	}
+
+	rule {
 		target_label = "pipeline"
 		replacement  = "alloy_relabel"
+	}
+
+	rule {
+		regex  = "__name__|job|instance|env|route|http_method|status|pipeline|team|shard"
+		action = "labelkeep"
 	}
 }
 
@@ -52,6 +70,7 @@ loki.process "shaped" {
 
 	stage.json {
 		expressions = {
+			ts         = "ts",
 			level      = "level",
 			method     = "method",
 			path       = "path",
@@ -60,6 +79,11 @@ loki.process "shaped" {
 			msg        = "msg",
 			service    = "service",
 		}
+	}
+
+	stage.timestamp {
+		source = "ts"
+		format = "RFC3339"
 	}
 
 	stage.drop {
@@ -76,6 +100,21 @@ loki.process "shaped" {
 		expression = "(/api/(?:orders|users))/[0-9]+"
 		source     = "path"
 		replace    = "$1/:id"
+	}
+
+	stage.match {
+		selector = `{level="info"}`
+
+		stage.sampling {
+			rate                = 0.5
+			drop_counter_reason = "info_sampling"
+		}
+	}
+
+	stage.limit {
+		rate  = 20
+		burst = 40
+		drop  = true
 	}
 
 	stage.static_labels {

@@ -84,16 +84,18 @@ If batching ran first, spans from the same trace could arrive too late for a cor
 
 ### Tail-sampling policies
 
-`otelcol.processor.tail_sampling.default` in `config.alloy` defines six policies:
+`otelcol.processor.tail_sampling.default` in `config.alloy` keeps errors, slow traces, and attribute matches, then samples 10% of the rest:
 
 1. **test-attribute-policy**: Keeps traces with `test_attr_key_1 = test_attr_val_1`.
 2. **error-policy**: Keeps traces that contain a span with `ERROR` status.
 3. **latency-policy**: Keeps traces with end-to-end latency above 5000 ms.
 4. **numeric-policy**: Keeps traces where numeric attribute `key1` is between 70 and 100.
-5. **url-filter-policy**: Drops traces whose `http.url` is `/health` or `/metrics`. All other URLs pass through to later policies.
-6. **probabilistic-policy**: Keeps 10% of remaining traces as a baseline sample.
+5. **drop-probes**: Drops traces whose `http.url` is `/health` or `/metrics` (`drop` policy; `invert_match` is deprecated).
+6. **slow-errors**: Keeps traces that are both `ERROR` and slower than 1s (`and` policy).
+7. **login-ottl**: Keeps traces where a span has `http.url = /login` (`ottl_condition`).
+8. **probabilistic-policy**: Keeps 10% of remaining traces as a baseline sample.
 
-The processor also sets `num_traces = 100` and `expected_new_traces_per_sec = 10` to size its in-memory trace buffer.
+The processor also sets `sample_on_first_match = true`, a `decision_cache` (larger for drop decisions), `num_traces = 100`, and `expected_new_traces_per_sec = 10`.
 
 ### Trace types the demo app generates
 

@@ -13,10 +13,37 @@ local.file_match "local_files" {
 }
  
 loki.source.file "log_scrape" {
-    targets    = local.file_match.local_files.targets
-    forward_to = [grafana_cloud.logs.default.receiver]
+    targets       = local.file_match.local_files.targets
+    forward_to    = [loki.process.file_logs.receiver]
     tail_from_end = true
+}
 
+loki.process "file_logs" {
+    forward_to = [grafana_cloud.logs.default.receiver]
 
+    stage.regex {
+        expression = "^(?P<ts>\\S+ \\S+) - (?P<level>\\w+) - (?P<msg>.*)$"
+    }
+
+    stage.timestamp {
+        source           = "ts"
+        format           = "2006-01-02 15:04:05,000"
+        fallback_formats = ["2006-01-02 15:04:05"]
+    }
+
+    stage.drop {
+        source     = "level"
+        expression = "DEBUG"
+    }
+
+    stage.labels {
+        values = {
+            level = "",
+        }
+    }
+
+    stage.output {
+        source = "msg"
+    }
 }
 

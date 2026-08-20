@@ -19,10 +19,13 @@ loki.source.file "log_scrape" {
 }
 
 // Redact secrets from log lines before sending to Loki.
-// Uses built-in Gitleaks patterns to detect API keys, passwords, tokens, etc.
+// Built-in Gitleaks patterns. Alloy v1.17 supports redact_with; later docs also
+// mention types / allowlist / include_generic — uncomment those on a newer image.
 loki.secretfilter "default" {
 	forward_to = [grafana_cloud.logs.default.receiver]
 
 	redact_with = "<REDACTED:$SECRET_NAME>"
+	// types = ["aws", "github", "slack"]
+	// allowlist = ["(?i)user_id=\\d+"]
 }
 

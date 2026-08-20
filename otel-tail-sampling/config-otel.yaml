@@ -19,27 +19,27 @@ processors:
     decision_wait: 10s
     num_traces: 100
     expected_new_traces_per_sec: 10
+    sample_on_first_match: true
+    decision_cache:
+      sampled_cache_size: 1000
+      non_sampled_cache_size: 10000
     policies:
-      # Policy 1: Always sample traces with a specific attribute value
       - name: test-attribute-policy
         type: string_attribute
         string_attribute:
           key: test_attr_key_1
           values: [test_attr_val_1]
 
-      # Policy 2: Sample error traces
       - name: error-policy
         type: status_code
         status_code:
           status_codes: [ERROR]
 
-      # Policy 3: Sample high latency traces (> 5s)
       - name: latency-policy
         type: latency
         latency:
           threshold_ms: 5000
 
-      # Policy 4: Sample traces matching a numeric attribute range
       - name: numeric-policy
         type: numeric_attribute
         numeric_attribute:
@@ -47,15 +47,37 @@ processors:
           min_value: 70
           max_value: 100
 
-      # Policy 5: URL-based policy to filter out health checks
-      - name: url-filter-policy
-        type: string_attribute
-        string_attribute:
-          key: http.url
-          values: ["/health", "/metrics"]
-          invert_match: true
+      - name: drop-probes
+        type: drop
+        drop:
+          drop_sub_policy:
+            - name: probe-urls
+              type: string_attribute
+              string_attribute:
+                key: http.url
+                values: ["/health", "/metrics"]
+                enabled_regex_matching: true
 
-      # Policy 6: Probabilistic sampling as a fallback (sample 10% of remaining traces)
+      - name: slow-errors
+        type: and
+        and:
+          and_sub_policy:
+            - name: is-error
+              type: status_code
+              status_code:
+                status_codes: [ERROR]
+            - name: is-slow
+              type: latency
+              latency:
+                threshold_ms: 1000
+
+      - name: login-ottl
+        type: ottl_condition
+        ottl_condition:
+          error_mode: ignore
+          span:
+            - 'attributes["http.url"] == "/login"'
+
       - name: probabilistic-policy
         type: probabilistic
         probabilistic:

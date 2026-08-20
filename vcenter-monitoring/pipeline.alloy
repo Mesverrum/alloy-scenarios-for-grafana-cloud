@@ -20,6 +20,30 @@ otelcol.receiver.vcenter "integrations_vsphere" {
 		insecure_skip_verify = true
 	}
 
+	metrics {
+		vcenter.cluster.vsan.congestions {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.latency.avg {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.operations {
+			enabled = false
+		}
+
+		vcenter.cluster.vsan.throughput {
+			enabled = false
+		}
+	}
+
+	resource_attributes {
+		vcenter.vm.id {
+			enabled = false
+		}
+	}
+
 	output {
 		metrics = [otelcol.processor.batch.integrations_vsphere.input]
 	}

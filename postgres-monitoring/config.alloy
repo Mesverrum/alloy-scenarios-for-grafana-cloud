@@ -13,6 +13,13 @@ grafana_cloud.metrics "default" {}
 
 prometheus.exporter.postgres "integrations_postgres_exporter" {
 	data_source_names = ["postgresql://alloy:alloy@postgres:5432/alloy?sslmode=disable"]
+	// Auth alternatives: sslmode=require (or verify-full) + a CA on the DSN.
+	// Docs extras (uncomment when the DB has the extension / extra databases):
+	// enabled_collectors = ["stat_statements"]
+	// autodiscovery {
+	//   enabled            = true
+	//   database_allowlist = ["alloy"]
+	// }
 }
 
 discovery.relabel "integrations_postgres_exporter" {

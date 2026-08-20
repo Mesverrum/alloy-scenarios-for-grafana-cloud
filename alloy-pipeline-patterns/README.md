@@ -21,10 +21,17 @@ This is **not** Adaptive Telemetry. Adaptive recommends drop/aggregation from qu
 | Metrics | `prometheus.relabel` `keep` | Drop `noisy_debug_total` |
 | Metrics | `labeldrop` | Remove `request_id`, `user_id` |
 | Metrics | `replace` | Normalize `/api/orders/1001` → `/api/orders/:id`; rename `method` → `http_method` |
+| Metrics | `lowercase` | Normalize `http_method` |
+| Metrics | `hashmod` | `instance` → `shard` (modulus 4) |
+| Metrics | `labelkeep` | Allowlist remaining labels |
 | Metrics | static `target_label` | Add `pipeline`, `team` |
-| Logs | `stage.json` | Parse the line |
+| Logs | `stage.json` | Parse the line, including `ts` |
+| Logs | `stage.timestamp` | Use the JSON `ts` field (`RFC3339`) instead of ingest time |
 | Logs | `stage.drop` | Drop `/health`, `/ready`, and `level=debug` |
 | Logs | `stage.replace` | Same path normalize on logs |
+| Logs | `stage.sampling` | Keep 50% of `{level="info"}`; keep all errors |
+| Logs | `stage.limit` | Cap at 20 lines/s (`drop = true`) |
+| Logs | `stage.metrics` | Count surviving lines as `alloy_pipeline_shaped_log_lines_total` |
 | Logs | `stage.static_labels` | Invent `env`, `pipeline`, `team` |
 | Logs | `stage.labels` | Index `level`, `method`, `status`, `service` |
 | Logs | `stage.structured_metadata` | Keep `request_id` and `path` off the label index |
@@ -46,9 +53,10 @@ Wait ~1m for the first scrape.
 ```text
 gcx metrics query 'app_up{job="alloy_pipeline_patterns"}'
 gcx metrics query 'http_requests_total{job="alloy_pipeline_patterns"}'
+gcx metrics query 'alloy_pipeline_shaped_log_lines_total'
 gcx logs query '{job="alloy_pipeline_patterns", pipeline="alloy_process"}'
 ```
 
-Expect: `app_up=1`; request series with `route` like `/api/orders/:id` and `http_method`, **no** `request_id` label; logs without `/health` or debug lines; error logs with `alert_worthy=true`.
+Expect: `app_up=1`; request series with `route` like `/api/orders/:id`, lowercase `http_method`, and a `shard` label; **no** `request_id` label; logs without `/health` or debug lines; error logs with `alert_worthy=true`; fewer info lines than the generator writes (sampling).
 
 In Cloud Explore, `noisy_debug_total` must be absent. `user_id` must not appear on `http_requests_total`.

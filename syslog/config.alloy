@@ -9,14 +9,27 @@ livedebugging {
 
 loki.source.syslog "local" {
   listener {
-    address  = "0.0.0.0:51893"
-    labels   = { component = "loki.source.syslog", protocol = "tcp" }
+    address               = "0.0.0.0:51893"
+    protocol              = "tcp"
+    syslog_format         = "rfc5424"
+    use_rfc5424_message   = true
+    use_incoming_timestamp = true
+    labels                = { component = "loki.source.syslog", protocol = "tcp" }
+    // TLS listener (docs tls_config): cert_file + key_file for the Alloy server,
+    // ca_file if you want mTLS from the sender. Not used in this Compose lab.
+    // tls_config {
+    //   cert_file = "/etc/alloy/tls/syslog.crt"
+    //   key_file  = "/etc/alloy/tls/syslog.key"
+    // }
   }
 
   listener {
-    address  = "0.0.0.0:51898"
-    protocol = "udp"
-    labels   = { component = "loki.source.syslog", protocol = "udp"}
+    address                = "0.0.0.0:51898"
+    protocol               = "udp"
+    syslog_format          = "rfc5424"
+    use_rfc5424_message    = true
+    use_incoming_timestamp = true
+    labels                 = { component = "loki.source.syslog", protocol = "udp"}
   }
 
   forward_to = [grafana_cloud.logs.default.receiver]

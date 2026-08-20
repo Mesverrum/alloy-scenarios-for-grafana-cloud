@@ -12,12 +12,29 @@ livedebugging {
 grafana_cloud.metrics "default" {}
 
 prometheus.exporter.blackbox "integrations_blackbox" {
-	config = "{ modules: { http_2xx: { prober: http, timeout: 5s } } }"
+	config = `
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+`
 
 	target {
 		name    = "nginx"
 		address = "http://nginx:80"
 		module  = "http_2xx"
+	}
+
+	target {
+		name    = "nginx_tcp"
+		address = "nginx:80"
+		module  = "tcp_connect"
 	}
 
 	target {

@@ -8,16 +8,36 @@ livedebugging {
 }
 
 loki.source.kafka "kafka" {
-  brokers = ["kafka:9092"]
-  topics  = ["alloy-logs"]
+  brokers  = ["kafka:9092"]
+  topics   = ["alloy-logs"]
+  group_id = "alloy-logs"
+  assignor = "range"
+  version  = "3.8.0"
   labels   = {
-    source = "kafka",
+    source    = "kafka",
     component = "loki.source.kafka",
-
   }
-  version = "3.8.0"
-  forward_to = [loki.process.log_data.receiver]
+  use_incoming_timestamp = true
+  forward_to             = [loki.process.log_data.receiver]
 
+  // Lab Kafka has no auth. Production alternatives from the component docs:
+  // authentication {
+  //   type = "sasl"
+  //   sasl_config {
+  //     mechanism = "PLAIN"
+  //     user      = sys.env("KAFKA_USER")
+  //     password  = sys.env("KAFKA_PASSWORD")
+  //     use_tls   = true
+  //   }
+  // }
+  // authentication {
+  //   type = "ssl"
+  //   tls_config {
+  //     ca_file   = "/etc/alloy/kafka-ca.crt"
+  //     cert_file = "/etc/alloy/kafka-client.crt"
+  //     key_file  = "/etc/alloy/kafka-client.key"
+  //   }
+  // }
 }
 
 loki.process "log_data" {
